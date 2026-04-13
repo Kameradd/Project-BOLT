@@ -1,0 +1,45 @@
+PROJECT: FSAE Trackside Telemetry Dashboard
+TEAM: Bimasakti UGM Racing Team
+TARGET DEPLOYMENT: September 2026 (Italy)
+
+1. PRIMARY OBJECTIVE
+To engineer an extremely light, high-performance, and visually responsive trackside telemetry dashboard capable of monitoring critical vehicle states via a local LoRa-to-Serial connection on a Windows environment.
+
+2. ARCHITECTURAL BOUNDARIES & STRICT CONSTRAINTS
+- The RF Link is the Bottleneck: LoRa physically cannot handle 200Hz live streaming of 319-byte payloads. 
+- Separation of Concerns: 
+  - The Vehicle Control Unit MUST handle the T.B.A Hz high-fidelity logging locally (e.g., to an SD card) for post-session analysis.
+  - The Vehicle Control Unit MUST downsample or pack the critical telemetry to 10Hz before passing it to the LoRa transmitter.
+- Zero UI Blocking: The incoming 10Hz data stream must never trigger full React DOM re-renders. High-speed data mutation must bypass React state.
+
+3. TECHNICAL STACK
+- Environment: Windows OS trackside laptop.
+- Hardware Interfacing: USB-to-Serial (COM port) from the LoRa receiver.
+- Backend: Node.js or Bun (Requires validation of native Windows 'serialport' binding stability).
+- Data Transport: Local WebSocket server (ws://localhost).
+- Frontend Shell: Vite + React (Strictly for layout, decorative styling, and static UI components).
+- Data Visualization: uPlot (Canvas-based time-series rendering via direct buffer mutation).
+- Data Shape : T.B.A amount of 2 byte in Hex Format that is signed type by default
+- Journaling : Always write in changelog.txt for traceable changes, dont read entire thing to save context
+
+4. CRITICAL PATH & EXECUTION PHASES
+- Phase 1: Physical Layer Validation. Identify the exact Windows COM port. Write a pure backend script to read the 10Hz serial stream without UI overhead.
+- Phase 2: Payload Contract. Finalize the exact byte structure or string format of the 10Hz downsampled data coming from the car.
+- Phase 3: The Router. Establish the WebSocket server and verify it successfully broadcasts the serial buffer to connected local clients.
+- Phase 4: Frontend Scaffolding. Build the Vite+React shell. Implement a static uPlot instance.
+- Phase 5: The Integration. Wire the WebSocket listener to a 'useRef' data buffer to feed uPlot. Verify 60 FPS rendering under load.
+
+5. SUCCESS CRITERIA
+- The dashboard processes incoming payloads continuously without crashing or freezing.
+- Visual frame rate remains completely stable during a full endurance run simulation.
+- Memory usage is flat (no uncontrolled garbage collection spikes).
+- The aesthetic is modern and clear enough for instant pit-wall decision making under harsh sunlight.
+
+6. Data Schema
+              "Timestamp,SystemOK,DataValidity,CAN2RxCount,BMS_V,BMS_A,BMS_SOC,BMS_RemCap,BMS_Temp_Max," 
+               "ECU_Temp,ECU_V,ECU_RPM,Gear,Throttle,GPS_Speed," 
+               "Brake_Raw,Susp1_Raw,Susp2_Raw,Susp3_Raw,Susp4_Raw," 
+               "IMU_Ax,IMU_Ay,IMU_Az,IMU_Gx,IMU_Gy,IMU_Gz," 
+               "Steer_Raw,Steer_Norm," 
+               "RPM_PA15,RPM_PB3,RPM_PB5,RPM_PB8," 
+               "VESC_L,VESC_R,APPS1,APPS2,Pedal,Duty,Motor_L,Motor_R"

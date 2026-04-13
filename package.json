@@ -1,0 +1,17 @@
+{
+  "name": "project-bolt",
+  "private": true,
+  "version": "0.1.0",
+  "description": "FSAE Trackside Telemetry Dashboard",
+  "workspaces": [
+    "backend",
+    "frontend"
+  ],
+  "scripts": {
+    "dev:backend": "npm run dev -w backend",
+    "dev:frontend": "npm run dev -w frontend",
+    "build": "npm run build -w frontend",
+    "preflight": "node scripts/preflight.cjs",
+    "preflight:hw": "node scripts/preflight-hw.cjs"
+  }
+}

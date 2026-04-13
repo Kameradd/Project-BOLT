@@ -1,0 +1,20 @@
+{
+  "name": "bolt-backend",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "node src/server.js",
+    "phase1": "node src/serial-monitor.js",
+    "phase1:com-mock": "node src/phase1-com-mock.js",
+    "phase1:ports": "node src/phase1-list-ports.js",
+    "phase1:verify": "node src/phase1-verify.js",
+    "phase1:verify:hw": "node src/phase1-verify.js",
+    "phase3": "node src/phase3-verify.js",
+    "phase5:soak": "node src/phase5-soak.js"
+  },
+  "dependencies": {
+    "serialport": "^13.0.0",
+    "ws": "^8.18.0"
+  }
+}

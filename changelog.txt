@@ -1,0 +1,133 @@
+2026-04-10
+- Commenced Project BOLT using mission-defined architecture and constraints.
+- Initialized monorepo workspace with `backend` and `frontend` packages.
+- Implemented backend serial ingestion (`serialport`) with:
+	- Physical serial mode over COM port
+	- Mock 10Hz stream mode for hardware-free validation
+	- Signed int16 hex payload parser (4 hex chars per channel)
+- Implemented local WebSocket router (`ws`) broadcasting status/error/telemetry events.
+- Implemented frontend Vite + React + uPlot shell with:
+	- WebSocket telemetry listener
+	- Mutable ring buffer (`useRef`) for non-blocking updates
+	- `requestAnimationFrame` chart refresh loop to avoid React render churn
+- Added mission-aligned README runbook and payload contract draft.
+- Validation executed:
+	- Frontend production build successful
+	- Backend serial monitor successful in mock 10Hz mode
+
+2026-04-10 (resume)
+- Re-read mission and changelog context, then resumed from Phase 1/2 boundary.
+- Reproduced `phase1` mock stream on Windows PowerShell to verify backend ingest is running.
+- Hardened payload contract enforcement by introducing `TELEMETRY_WORDS` (default `3`) in backend config.
+- Updated parser to reject payloads that do not match exact expected word count (`TELEMETRY_WORDS * 4` hex chars).
+- Wired strict contract validation into both `serial-monitor` and WebSocket server paths.
+- Updated `backend/.env.example` and `README.md` to document contract/runtime config.
+
+2026-04-10 (phase3)
+- Implemented automated router verifier script: `backend/src/phase3-verify.js`.
+- Added backend script command: `npm run phase3 -w backend`.
+- Verification flow now auto-starts backend in mock 10Hz mode, connects 2 local WS clients, and asserts valid telemetry broadcast reception.
+- Executed verification on Windows PowerShell: PASS (`client-A` and `client-B` received valid telemetry frames with zero parse/shape errors).
+
+2026-04-10 (phase5-runtime)
+- Added non-blocking frontend runtime instrumentation in `frontend/src/UplotPanel.jsx` inside the existing `requestAnimationFrame` loop.
+- Instrumentation publishes `window.__boltPerf` and periodic `[BOLT PERF]` console logs containing FPS stats and heap trend (when browser memory API is available).
+- Added manual Phase 5 runtime verification procedure to `README.md`.
+- Validation executed: `npm run build -w frontend` PASS after instrumentation changes.
+
+2026-04-10 (phase5-soak)
+- Implemented automated backend soak verifier: `backend/src/phase5-soak.js`.
+- Added script command: `npm run phase5:soak -w backend`.
+- Soak verifier starts backend router in mock 10Hz mode, subscribes local WS client, and reports duration, telemetry throughput, and integrity counters (`drop/error/parseError/invalidShape`).
+- Added soak runbook and pass criteria to `README.md`.
+- Validation executed on Windows PowerShell: PASS with `SOAK_SECONDS=8` (`telemetryHz=9.10`, zero drop/error/parse/shape faults).
+
+2026-04-10 (preflight)
+- Added finite Phase 1 verifier script: `backend/src/phase1-verify.js` and command `npm run phase1:verify -w backend`.
+- Added root one-command pre-session validator: `scripts/preflight.cjs` with command `npm run preflight`.
+- Preflight sequence now runs: Phase1 verify (mock) -> Phase3 verify -> Phase5 soak -> Frontend build.
+- Added preflight runbook and tuning env vars (`PREFLIGHT_PHASE1_SECONDS`, `PREFLIGHT_SOAK_SECONDS`) to `README.md`.
+- Validation executed: `npm run preflight` PASS on Windows PowerShell (all steps passing).
+- Stabilized preflight process launching using explicit shell wrappers (`cmd.exe` on Windows), then re-validated `npm run preflight` PASS.
+
+2026-04-10 (hardware-commissioning)
+- Added Phase 1 COM discovery tool: `backend/src/phase1-list-ports.js` with command `npm run phase1:ports -w backend`.
+- Added hardware preflight runner: `scripts/preflight-hw.cjs` with root command `npm run preflight:hw`.
+- Hardware preflight enforces real serial mode (`MOCK_SERIAL=false`) and requires `COM_PORT` for finite ingest verification.
+- Added Windows hardware commissioning runbook and notes to `README.md`.
+- Validation executed (tooling check): `npm run phase1:ports -w backend`.
+
+2026-04-10 (phase2-schema-lock)
+- Locked Phase 2 payload contract to mission Data Schema (40 signed int16 words).
+- Added shared payload schema module: `backend/src/payload-schema.js` (field order + word count + values-to-channel mapping helper).
+- Updated backend config default `TELEMETRY_WORDS` to schema length (`40`) and updated `backend/.env.example` accordingly.
+- Updated mock serial source to generate schema-sized synthetic payloads at 10Hz.
+- Extended WebSocket telemetry broadcast to include named `channels` map plus `schema` field list, while keeping `values` for compatibility.
+- Updated `README.md` payload contract section to reflect finalized mission schema.
+
+2026-04-10 (frontend-channel-binding)
+- Updated frontend telemetry hook to consume named schema channels from backend (`message.channels`) with fallback to `schema + values` and then index `0`.
+- Added environment-driven channel selection: `VITE_TELEMETRY_CHANNEL` (default: `ECU_RPM`).
+- Updated uPlot title to show selected channel label instead of generic channel index.
+- Updated `README.md` with channel selection usage.
+
+2026-04-10 (com-mock-transmitter)
+- Added COM mock writer utility: `backend/src/phase1-com-mock.js`.
+- Added command: `npm run phase1:com-mock -w backend` with options `--port`, `--baud`, `--hz`, `--seconds`, `--words`.
+- Utility writes newline-delimited dummy payloads (signed int16 hex words) to a real COM port for hardware-path testing.
+- Updated `README.md` hardware section with usage examples and finite-duration run mode.
+- Added targeted diagnostics for open failures (`Access denied` hints + live serial port listing on error).
+
+2026-04-13 (preflight)
+- Resumed project execution from validated baseline.
+- Executed root pre-session pipeline: `npm run preflight`.
+- Result: PASS on Windows PowerShell (`exit code 0`).
+- All pipeline gates completed successfully (Phase1 verify mock, Phase3 router verify, Phase5 soak, frontend build).
+- Next gate prepared: hardware commissioning via `npm run phase1:ports -w backend` then `npm run preflight:hw` with real `COM_PORT`.
+
+2026-04-13 (hardware-preflight-attempt)
+- Executed COM discovery: `npm run phase1:ports -w backend`.
+- Detected ports: `COM7`, `COM6`, `COM8`, `COM5`.
+- Ran hardware preflight with `COM_PORT=COM7` and `BAUD_RATE=115200` using `npm run preflight:hw`.
+- Result: FAIL at Phase1 hardware verify (serial opened, but no incoming payloads within 5s).
+- Observed counters: `payload=0 valid=0 invalid=0 errors=0`; threshold requires `valid>=30`.
+- Immediate next action: verify correct RX endpoint / active transmitter, then re-run `preflight:hw`.
+
+2026-04-13 (hardware-preflight-com0com-pass)
+- Executed backend hardware-path simulation with com0com dummy telemetry stream.
+- Set runtime to `COM_PORT=COM4` and `BAUD_RATE=115200`.
+- Ran `npm run preflight:hw` successfully on Windows PowerShell.
+- Phase1 hardware verify counters: `payload=525 valid=525 invalid=0 errors=0` over 5 seconds.
+- Frontend production build passed during same run.
+- Outcome: hardware preflight pipeline is validated; remaining issue isolated to physical receiver data path/config on `COM7`.
+
+2026-04-13 (frontend-refresh-resilience)
+- Improved frontend telemetry refresh resilience in `frontend/src/useTelemetryBuffer.js`.
+- Added automatic WebSocket reconnect loop (1s retry) when backend disconnects/restarts.
+- Added safe telemetry timestamp fallback (`Date.now()`) when message timestamp is missing/invalid.
+- Optimized chart update loop in `frontend/src/UplotPanel.jsx` to call `setData` only when new points arrive.
+- Validation executed: `npm run build -w frontend` PASS.
+
+2026-04-13 (frontend-refresh-hotfix)
+- Fixed chart refresh gate in `frontend/src/UplotPanel.jsx` so updates continue after ring buffer reaches max length.
+- Previous optimization keyed only on buffer length; hotfix now detects new latest sample values and keeps real-time redraw active.
+- Validation executed: `npm run build -w frontend` PASS.
+
+2026-04-13 (frontend-refresh-hotfix-2)
+- Updated `uPlot` streaming call in `frontend/src/UplotPanel.jsx` from `setData(..., false)` to default `setData(...)`.
+- This re-enables scale/window refresh on incoming samples so chart visibly advances in real time without user interaction.
+- Validation executed: `npm run build -w frontend` PASS.
+
+2026-04-13 (frontend-multi-window-channels)
+- Added multi-window telemetry view in `frontend/src/App.jsx`: users can select multiple channels and render charts simultaneously.
+- Added channel selection UI (checkbox picker) with dynamic channel list sourced from backend telemetry schema.
+- Refactored frontend telemetry buffer in `frontend/src/useTelemetryBuffer.js` to maintain shared timestamp stream and per-channel ring buffers.
+- Updated `frontend/src/UplotPanel.jsx` to read per-channel data from shared buffer and support responsive panel sizing.
+- Added supporting layout/styles for channel picker and chart grid in `frontend/src/styles.css`.
+- Validation executed: `npm run build -w frontend` PASS.
+
+2026-04-13 (frontend-layout-colors)
+- Reduced side spacing by widening layout container in `frontend/src/styles.css` (`max-width: none`, lower horizontal padding).
+- Added per-plot line color encoding for multi-window charts via color palette in `frontend/src/App.jsx`.
+- Updated `frontend/src/UplotPanel.jsx` to accept configurable `lineColor` per panel.
+- Validation executed: `npm run build -w frontend` PASS.
