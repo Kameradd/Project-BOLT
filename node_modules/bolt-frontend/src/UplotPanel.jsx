@@ -3,11 +3,12 @@ import uPlot from "uplot";
 import "uplot/dist/uPlot.min.css";
 
 const PLOT_HEIGHT = 260;
+const WHEEL_ZOOM_FACTOR = 1.15;
 
-const createPlotOptions = (channelLabel, width, lineColor) => ({
+const createPlotOptions = (plotTitle, width, channelLabels, lineColors, onXScaleSet) => ({
   width,
   height: PLOT_HEIGHT,
-  title: `BOLT Telemetry ${channelLabel}`,
+  title: `BOLT Telemetry ${plotTitle}`,
   scales: {
     x: { time: true },
     y: { auto: true }
@@ -22,16 +23,35 @@ const createPlotOptions = (channelLabel, width, lineColor) => ({
       grid: { stroke: "#1f2937" }
     }
   ],
-  series: [{}, { label: channelLabel, stroke: lineColor, width: 2 }]
+  series: [
+    {},
+    ...channelLabels.map((label, index) => ({
+      label,
+      stroke: lineColors[index] || "#22d3ee",
+      width: 2
+    }))
+  ],
+  hooks: {
+    setScale: [
+      (plot, key) => {
+        if (key !== "x") {
+          return;
+        }
+        onXScaleSet(plot.scales.x.min, plot.scales.x.max);
+      }
+    ]
+  }
 });
 
-const UplotPanel = ({ telemetryRef, channelLabel, lineColor = "#22d3ee" }) => {
+const UplotPanel = ({ telemetryRef, plotTitle, channelLabels, lineColors, perfEnabled = false }) => {
   const containerRef = useRef(null);
   const plotRef = useRef(null);
   const rafRef = useRef(null);
+  const userZoomedRef = useRef(false);
+  const fullRangeRef = useRef({ min: null, max: null });
+  const internalScaleUpdateRef = useRef(false);
   const lastRenderedLengthRef = useRef(0);
   const lastRenderedXRef = useRef(null);
-  const lastRenderedYRef = useRef(null);
   const frameCountRef = useRef(0);
   const lastFpsSampleAtRef = useRef(0);
   const fpsStatsRef = useRef({ min: Infinity, max: 0, avg: 0, samples: 0 });
@@ -109,44 +129,209 @@ const UplotPanel = ({ telemetryRef, channelLabel, lineColor = "#22d3ee" }) => {
       return;
     }
 
-    const initialWidth = Math.max(340, Math.floor(containerRef.current.clientWidth || 520));
+    const handleXScaleSet = (scaleMin, scaleMax) => {
+      if (internalScaleUpdateRef.current) {
+        return;
+      }
+
+      const fullMin = fullRangeRef.current.min;
+      const fullMax = fullRangeRef.current.max;
+      if (
+        !Number.isFinite(fullMin) ||
+        !Number.isFinite(fullMax) ||
+        !Number.isFinite(scaleMin) ||
+        !Number.isFinite(scaleMax)
+      ) {
+        return;
+      }
+
+      const fullRange = fullMax - fullMin;
+      const epsilon = Math.max(0.001, fullRange * 0.002);
+      const atFullRange =
+        Math.abs(scaleMin - fullMin) <= epsilon && Math.abs(scaleMax - fullMax) <= epsilon;
+      userZoomedRef.current = !atFullRange;
+    };
+
+    const initialWidth = Math.max(240, Math.floor(containerRef.current.clientWidth || 520));
     plotRef.current = new uPlot(
-      createPlotOptions(channelLabel, initialWidth, lineColor),
-      [[], []],
+      createPlotOptions(plotTitle, initialWidth, channelLabels, lineColors, handleXScaleSet),
+      [[], ...channelLabels.map(() => [])],
       containerRef.current
     );
 
-    const handleResize = () => {
+    const applySize = () => {
       if (!plotRef.current || !containerRef.current) {
         return;
       }
-      const width = Math.max(340, Math.floor(containerRef.current.clientWidth || 520));
+      const width = Math.max(240, Math.floor(containerRef.current.clientWidth || 520));
       plotRef.current.setSize({ width, height: PLOT_HEIGHT });
     };
 
-    window.addEventListener("resize", handleResize);
+    const handleWheel = (event) => {
+      if (!plotRef.current || !containerRef.current) {
+        return;
+      }
+
+      const plot = plotRef.current;
+      const fullMin = fullRangeRef.current.min;
+      const fullMax = fullRangeRef.current.max;
+      if (!Number.isFinite(fullMin) || !Number.isFinite(fullMax) || fullMax <= fullMin) {
+        return;
+      }
+
+      const xScale = plot.scales.x;
+      const xMin = xScale.min;
+      const xMax = xScale.max;
+      if (!Number.isFinite(xMin) || !Number.isFinite(xMax) || xMax <= xMin) {
+        return;
+      }
+
+      if (!event.ctrlKey) {
+        return;
+      }
+
+      event.preventDefault();
+
+      const rect = containerRef.current.getBoundingClientRect();
+      const relX = event.clientX - rect.left - plot.bbox.left;
+      if (relX < 0 || relX > plot.bbox.width) {
+        return;
+      }
+
+      const cursorValue = plot.posToVal(relX, "x");
+      if (!Number.isFinite(cursorValue)) {
+        return;
+      }
+
+      const range = xMax - xMin;
+      const fullRange = fullMax - fullMin;
+      const ratio = (cursorValue - xMin) / range;
+      const zoomIn = event.deltaY < 0;
+      const factor = zoomIn ? 1 / WHEEL_ZOOM_FACTOR : WHEEL_ZOOM_FACTOR;
+      let nextRange = range * factor;
+
+      const minRange = Math.max(0.2, fullRange / 120);
+      nextRange = Math.max(minRange, Math.min(fullRange, nextRange));
+
+      let nextMin = cursorValue - (ratio * nextRange);
+      let nextMax = nextMin + nextRange;
+
+      if (nextMin < fullMin) {
+        nextMin = fullMin;
+        nextMax = nextMin + nextRange;
+      }
+
+      if (nextMax > fullMax) {
+        nextMax = fullMax;
+        nextMin = nextMax - nextRange;
+      }
+
+      const epsilon = Math.max(0.001, fullRange * 0.002);
+      const atFullRange =
+        Math.abs(nextMin - fullMin) <= epsilon && Math.abs(nextMax - fullMax) <= epsilon;
+
+      userZoomedRef.current = !atFullRange;
+      internalScaleUpdateRef.current = true;
+      plot.setScale("x", { min: nextMin, max: nextMax });
+      internalScaleUpdateRef.current = false;
+    };
+
+    const handleDoubleClick = () => {
+      const fullMin = fullRangeRef.current.min;
+      const fullMax = fullRangeRef.current.max;
+      if (!plotRef.current || !Number.isFinite(fullMin) || !Number.isFinite(fullMax)) {
+        return;
+      }
+
+      userZoomedRef.current = false;
+      internalScaleUpdateRef.current = true;
+      plotRef.current.setScale("x", { min: fullMin, max: fullMax });
+      internalScaleUpdateRef.current = false;
+    };
+
+    containerRef.current.addEventListener("wheel", handleWheel, { passive: false });
+    containerRef.current.addEventListener("dblclick", handleDoubleClick);
+
+    let resizeObserver = null;
+    if (typeof ResizeObserver !== "undefined") {
+      resizeObserver = new ResizeObserver(() => applySize());
+      resizeObserver.observe(containerRef.current);
+    } else {
+      window.addEventListener("resize", applySize);
+    }
 
     const renderFrame = (now) => {
       const data = telemetryRef.current;
-      const ySeries = data.channels?.[channelLabel] || [];
-      if (plotRef.current && data.x.length > 1 && ySeries.length > 1) {
-        const latestIndex = Math.min(data.x.length, ySeries.length) - 1;
+      const channelSeries = channelLabels.map((channel) => data.channels?.[channel] || []);
+      const minLength = Math.min(data.x.length, ...channelSeries.map((series) => series.length));
+
+      if (plotRef.current && minLength > 1) {
+        const latestIndex = minLength - 1;
         const latestX = data.x[latestIndex];
-        const latestY = ySeries[latestIndex];
         const hasNewPoint =
           latestIndex + 1 !== lastRenderedLengthRef.current ||
-          latestX !== lastRenderedXRef.current ||
-          latestY !== lastRenderedYRef.current;
+          latestX !== lastRenderedXRef.current;
 
         if (hasNewPoint) {
-          plotRef.current.setData([data.x, ySeries]);
+          const allAligned = minLength === data.x.length;
+          const xSeries = allAligned ? data.x : data.x.slice(-minLength);
+          const plotSeries = allAligned
+            ? channelSeries
+            : channelSeries.map((series) => series.slice(-minLength));
+          const fullMin = xSeries[0];
+          const fullMax = xSeries[xSeries.length - 1];
+          const oldFullMax = fullRangeRef.current.max;
+          fullRangeRef.current = { min: fullMin, max: fullMax };
+
+          if (!userZoomedRef.current) {
+            plotRef.current.setData([xSeries, ...plotSeries], true);
+          } else {
+            const xScale = plotRef.current.scales.x;
+            let currentMin = xScale.min;
+            let currentMax = xScale.max;
+
+            // Auto-scroll the zoom window forward if it was bound to the live right-edge
+            if (oldFullMax !== null && Number.isFinite(oldFullMax) && currentMax >= oldFullMax - 0.5) {
+              const delta = fullMax - oldFullMax;
+              currentMin += delta;
+              currentMax += delta;
+            }
+
+            internalScaleUpdateRef.current = true;
+            plotRef.current.setData([xSeries, ...plotSeries], false);
+            internalScaleUpdateRef.current = false;
+
+            if (Number.isFinite(currentMin) && Number.isFinite(currentMax) && currentMax > currentMin) {
+              let nextMin = currentMin;
+              let nextMax = currentMax;
+
+              if (nextMin < fullMin) {
+                const width = nextMax - nextMin;
+                nextMin = fullMin;
+                nextMax = nextMin + width;
+              }
+
+              if (nextMax > fullMax) {
+                const width = nextMax - nextMin;
+                nextMax = fullMax;
+                nextMin = nextMax - width;
+              }
+
+              if (nextMax > nextMin) {
+                internalScaleUpdateRef.current = true;
+                plotRef.current.setScale("x", { min: nextMin, max: nextMax });
+                internalScaleUpdateRef.current = false;
+              }
+            }
+          }
           lastRenderedLengthRef.current = latestIndex + 1;
           lastRenderedXRef.current = latestX;
-          lastRenderedYRef.current = latestY;
         }
       }
 
-      updatePerfStats(now);
+      if (perfEnabled) {
+        updatePerfStats(now);
+      }
       rafRef.current = requestAnimationFrame(renderFrame);
     };
 
@@ -156,16 +341,28 @@ const UplotPanel = ({ telemetryRef, channelLabel, lineColor = "#22d3ee" }) => {
       if (rafRef.current) {
         cancelAnimationFrame(rafRef.current);
       }
-      window.removeEventListener("resize", handleResize);
+      if (resizeObserver) {
+        resizeObserver.disconnect();
+      } else {
+        window.removeEventListener("resize", applySize);
+      }
+      if (containerRef.current) {
+        containerRef.current.removeEventListener("wheel", handleWheel);
+        containerRef.current.removeEventListener("dblclick", handleDoubleClick);
+      }
+      userZoomedRef.current = false;
+      fullRangeRef.current = { min: null, max: null };
+      internalScaleUpdateRef.current = false;
       lastRenderedLengthRef.current = 0;
       lastRenderedXRef.current = null;
-      lastRenderedYRef.current = null;
       if (plotRef.current) {
         plotRef.current.destroy();
       }
-      window.__boltPerf = undefined;
+      if (perfEnabled) {
+        window.__boltPerf = undefined;
+      }
     };
-  }, [channelLabel, lineColor, telemetryRef]);
+  }, [channelLabels, lineColors, perfEnabled, plotTitle, telemetryRef]);
 
   return <div ref={containerRef} />;
 };

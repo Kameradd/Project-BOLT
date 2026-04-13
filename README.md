@@ -121,6 +121,21 @@ Optional finite run:
 npm run phase1:com-mock -w backend -- --port COM5 --seconds 30
 ```
 
+Realistic race-like waveform example:
+
+```powershell
+npm run phase1:com-mock -w backend -- --port COM5 --profile race --wave triangle --noise 18 --drift 2 --spike-rate 0.003 --dropout-rate 0.01
+```
+
+Profile/variation options:
+- `--profile <legacy|smooth|race|step>`: signal behavior template (`legacy` preserves old deterministic shape)
+- `--wave <sine|triangle|square|saw>`: primary waveform form used by dynamic channels
+- `--noise <number>`: random noise amplitude added per channel sample
+- `--drift <number>`: random walk drift amplitude per frame
+- `--spike-rate <0-1>`: transient spike probability per channel sample
+- `--dropout-rate <0-1>`: per-frame drop probability to simulate missing RF packets
+- `--seed <number>`: deterministic run seed for repeatable replay
+
 Hardware preflight executes:
 - serial port discovery
 - finite Phase 1 hardware ingest verification

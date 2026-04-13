@@ -76,8 +76,21 @@ body {
 
 .plot-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(360px, 1fr));
+  grid-template-columns: minmax(0, 1fr);
   gap: 12px;
+  align-items: stretch;
+}
+
+@media (min-width: 900px) {
+  .plot-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (min-width: 1360px) {
+  .plot-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
 }
 
 .plot-card {
@@ -85,6 +98,7 @@ body {
   border-radius: 10px;
   background: #0f172a;
   padding: 8px;
+  min-width: 0;
 }
 
 .empty-state {

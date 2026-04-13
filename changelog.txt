@@ -131,3 +131,36 @@
 - Added per-plot line color encoding for multi-window charts via color palette in `frontend/src/App.jsx`.
 - Updated `frontend/src/UplotPanel.jsx` to accept configurable `lineColor` per panel.
 - Validation executed: `npm run build -w frontend` PASS.
+
+2026-04-13 (frontend-unit-grouping-autoresize)
+- Added channel unit grouping in `frontend/src/App.jsx` so selected IMU channels share one plot window and RPM channels share one plot window.
+- Kept channel-level selection; grouping is automatic at render time based on channel naming (`IMU_*`, `*RPM*`).
+- Updated `frontend/src/UplotPanel.jsx` to support multi-series plotting per window (multiple channels in one chart) with stable per-channel colors.
+- Implemented container-driven auto-resize using `ResizeObserver` in `frontend/src/UplotPanel.jsx`.
+- Updated grid behavior in `frontend/src/styles.css` to `auto-fit` responsive columns so windows expand to fill unused space dynamically.
+- Validation executed: `npm run build -w frontend` PASS.
+
+2026-04-13 (frontend-zoom-persist)
+- Fixed zoom reset behavior in `frontend/src/UplotPanel.jsx` during live streaming updates.
+- Plot now preserves user zoom range while new data arrives, and only auto-fits x-scale when chart remains in full-range live mode.
+- Validation executed: `npm run build -w frontend` PASS.
+
+2026-04-13 (frontend-zoom-wheel-performance)
+- Added mouse wheel zoom support on chart x-axis in `frontend/src/UplotPanel.jsx` with cursor-anchored zoom and full-range bounds.
+- Reduced multi-panel runtime overhead by enabling `[BOLT PERF]` instrumentation only on the first visible plot (`frontend/src/App.jsx`).
+- Reduced update-time allocations in `frontend/src/UplotPanel.jsx` by avoiding slice copies when series arrays are already aligned.
+- Validation executed: `npm run build -w frontend` PASS.
+
+2026-04-13 (frontend-zoom-wheel-fix)
+- Fixed persistent zoom behavior in `frontend/src/UplotPanel.jsx` by preserving current x-range after live `setData` updates while zoom mode is active.
+- Updated wheel interaction to `Ctrl + mouse wheel` zoom, so normal page scrolling is no longer intercepted by chart hover.
+- Kept `double-click` reset to return chart to full live-range auto-follow mode.
+- Validation executed: `npm run build -w frontend` PASS.
+
+2026-04-13 (com-mock-realism-variation)
+- Extended `backend/src/phase1-com-mock.js` to support realistic and varied telemetry generation with configurable behavior.
+- Added new CLI options: `--profile`, `--wave`, `--noise`, `--drift`, `--spike-rate`, `--dropout-rate`, and `--seed`.
+- Added profile presets (`legacy`, `smooth`, `race`, `step`) and waveform forms (`sine`, `triangle`, `square`, `saw`).
+- Added per-channel drift/noise/spike simulation and optional frame dropouts for RF-like packet loss behavior.
+- Kept backward compatibility by retaining `legacy` profile output mode.
+- Updated `README.md` with example command and option descriptions.
