@@ -148,6 +148,14 @@ const profilePresets = {
     brakeAmp: 0.16,
     speedAmp: 70,
     rpmAmp: 4200
+  },
+  extreme: {
+    throttleBias: 0.5,
+    throttleAmp: 0.5, // Amplitudo maksimal (Gas dari 0 sampai 100%)
+    brakeBias: 0.1,
+    brakeAmp: 0.4,
+    speedAmp: 120,    // Speed bisa meloncat sangat tinggi
+    rpmAmp: 8000      // RPM bisa berayun naik turun 8.000 angka
   }
 };
 

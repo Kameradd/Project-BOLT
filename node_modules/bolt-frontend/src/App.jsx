@@ -159,8 +159,8 @@ const App = () => {
               Asumsi dari kode koormu, nama sensornya "ECU_RPM" */}
           <RpmGauge telemetryRef={telemetryRef}
             channelName="ECU_RPM"
-            speedChannel="ECU_SPEED"
-            gearChannel="ECU_GEAR"
+            speedChannel="GPS_Speed"
+            gearChannel="Gear"
           />
           <div style={{ marginTop: '40px', fontSize: '14px', color: status === 'connected' ? '#39ff14' : '#f87171' }}>
             SYSTEM STATUS: {status.toUpperCase()}
