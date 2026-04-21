@@ -1,3 +1,5 @@
+@import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;700;900&display=swap');
+
 * {
   box-sizing: border-box;
 }
@@ -5,7 +7,8 @@
 :root {
   font-family: Inter, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
   color: #e5e7eb;
-  background: #0b1120;
+  /*warna bg asli 0b1120 */
+  background: #000000;
 }
 
 body {
@@ -33,7 +36,8 @@ body {
 .card {
   border: 1px solid #1f2937;
   border-radius: 12px;
-  background: #111827;
+  /*warna bg asli 111827 */
+  background: #000000;
   padding: 14px;
 }
 

@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import UplotPanel from "./UplotPanel.jsx";
 import { useTelemetryBuffer } from "./useTelemetryBuffer.js";
+import RpmGauge from "./components/RpmGauge.jsx";
 
 const PLOT_COLORS = [
   "#22d3ee",
@@ -70,6 +71,156 @@ const buildPlotGroups = (channels) => {
   }));
 };
 
+
+const App = () => {
+  const { telemetryRef, availableChannelsRef, statusRef } = useTelemetryBuffer();
+  const [status, setStatus] = useState("disconnected");
+
+  // STATE BARU: Untuk mengatur Menu Tab
+  const [activeTab, setActiveTab] = useState("dashboard");
+
+  const [availableChannels, setAvailableChannels] = useState(availableChannelsRef.current);
+  const [selectedChannels, setSelectedChannels] = useState(
+    availableChannelsRef.current.length > 0 ? [availableChannelsRef.current[0]] : []
+  );
+  const plotGroups = useMemo(() => buildPlotGroups(selectedChannels), [selectedChannels]);
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setStatus(statusRef.current);
+
+      const nextChannels = availableChannelsRef.current;
+      setAvailableChannels((prev) => (arraysEqual(prev, nextChannels) ? prev : [...nextChannels]));
+      setSelectedChannels((prev) => {
+        const filtered = prev.filter((channel) => nextChannels.includes(channel));
+        if (filtered.length > 0) {
+          if (arraysEqual(prev, filtered)) {
+            return prev;
+          }
+          return filtered;
+        }
+        return nextChannels.length > 0 ? [nextChannels[0]] : [];
+      });
+    }, 250);
+
+    return () => clearInterval(timer);
+  }, [availableChannelsRef, statusRef]);
+
+  const toggleChannel = (channel) => {
+    setSelectedChannels((prev) => {
+      if (prev.includes(channel)) {
+        return prev.filter((item) => item !== channel);
+      }
+      return [...prev, channel];
+    });
+  };
+
+  return (
+    <main className="layout">
+      {/* HEADER DIROMBAK UNTUK MENU NAVIGASI */}
+      <header className="topbar" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+        <div>
+          <h1 style={{ color: '#39ff14' }}>BOLT</h1>
+          <p>Bimasakti On-site Live Telemetry</p>
+        </div>
+
+        <nav style={{ display: 'flex', gap: '10px' }}>
+          <button
+            onClick={() => setActiveTab("dashboard")}
+            style={{
+              padding: '10px 20px',
+              backgroundColor: activeTab === "dashboard" ? "#39ff14" : "transparent",
+              color: activeTab === "dashboard" ? "black" : "white",
+              border: '1px solid #39ff14', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold'
+            }}
+          >
+            HUD VIEW
+          </button>
+          <button
+            onClick={() => setActiveTab("analytics")}
+            style={{
+              padding: '10px 20px',
+              backgroundColor: activeTab === "analytics" ? "#22d3ee" : "transparent",
+              color: activeTab === "analytics" ? "black" : "white",
+              border: '1px solid #22d3ee', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold'
+            }}
+          >
+            ENGINEERING VIEW
+          </button>
+        </nav>
+      </header>
+
+      {/* RUANGAN 1: DASHBOARD HUD F1 KITA */}
+      {activeTab === "dashboard" && (
+        <section className="card" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '60vh' }}>
+          <h2 style={{ color: '#9ca3af', letterSpacing: '4px', marginBottom: '30px' }}>RACE DASHBOARD</h2>
+
+          {/* Gauge RPM kita menyedot data langsung dari telemetryRef.
+              Asumsi dari kode koormu, nama sensornya "ECU_RPM" */}
+          <RpmGauge telemetryRef={telemetryRef}
+            channelName="ECU_RPM"
+            speedChannel="ECU_SPEED"
+            gearChannel="ECU_GEAR"
+          />
+          <div style={{ marginTop: '40px', fontSize: '14px', color: status === 'connected' ? '#39ff14' : '#f87171' }}>
+            SYSTEM STATUS: {status.toUpperCase()}
+          </div>
+        </section>
+      )}
+
+      {/* RUANGAN 2: KODE ANALITIK ASLI KOORMU */}
+      {activeTab === "analytics" && (
+        <section className="card">
+          <div className="status-row">
+            <span>WebSocket: </span>
+            <strong>{status}</strong>
+          </div>
+
+          <div className="channel-picker">
+            <p className="picker-title">
+              Display channels ({selectedChannels.length}) — IMU/RPM channels auto-group in one window
+            </p>
+            <div className="channel-grid">
+              {availableChannels.map((channel) => (
+                <label key={channel} className="channel-item">
+                  <input
+                    type="checkbox"
+                    checked={selectedChannels.includes(channel)}
+                    onChange={() => toggleChannel(channel)}
+                  />
+                  <span>{channel}</span>
+                </label>
+              ))}
+            </div>
+          </div>
+
+          {selectedChannels.length === 0 ? (
+            <p className="empty-state">Select at least one channel to display charts.</p>
+          ) : (
+            <div className="plot-grid">
+              {plotGroups.map((group, index) => (
+                <div className="plot-card" key={group.groupKey}>
+                  <UplotPanel
+                    telemetryRef={telemetryRef}
+                    plotTitle={group.title}
+                    channelLabels={group.channelLabels}
+                    lineColors={group.lineColors}
+                    perfEnabled={index === 0}
+                  />
+                </div>
+              ))}
+            </div>
+          )}
+        </section>
+      )}
+
+    </main>
+  );
+};
+
+export default App;
+
+/*
 const App = () => {
   const { telemetryRef, availableChannelsRef, statusRef } = useTelemetryBuffer();
   const [status, setStatus] = useState("disconnected");
@@ -163,3 +314,4 @@ const App = () => {
 };
 
 export default App;
+*/
