@@ -2,6 +2,8 @@ import { useEffect, useMemo, useState } from "react";
 import UplotPanel from "./UplotPanel.jsx";
 import { useTelemetryBuffer } from "./useTelemetryBuffer.js";
 import RpmGauge from "./components/RpmGauge.jsx";
+import BmsGauge from "./components/BmsGauge.jsx";
+import EcuGauge from "./components/EcuGauge.jsx";
 
 const PLOT_COLORS = [
   "#22d3ee",
@@ -157,7 +159,8 @@ const App = () => {
 
           {/* 2. RAHASIANYA DI SINI: Kita bungkus RpmGauge dengan div "Kaca Pembesar" */}
           <div style={{
-            transform: 'scale(1.4)', /* <--- Ubah angka 1.8 ini. 1.0 ukuran asli, 2.0 dua kali lipat */
+            position: 'relative', /* Wajib ditambah relative agar tumpang tindihnya pas */
+            transform: 'scale(1.8)', /* <--- Ubah angka 1.8 ini. 1.0 ukuran asli, 2.0 dua kali lipat */
             transformOrigin: 'top center',
             marginBottom: '150px' /* Memberi ruang di bawah karena efek scale */
           }}>
@@ -167,6 +170,21 @@ const App = () => {
               speedChannel="GPS_Speed"
               gearChannel="Gear"
             />
+
+            {/* Baterai Bimasakti ditumpuk di atasnya */}
+            <BmsGauge
+              telemetryRef={telemetryRef}
+              channelName="BMS_SOC"
+              voltageChannel="BMS_V"
+              currentChannel="BMS_A"
+              tempChannel="BMS_Temp_Max"
+            />
+            {/* Indikator ECU Temp dengan Sliding Mask */}
+            <EcuGauge
+              telemetryRef={telemetryRef}
+              channelName="ECU_Temp"
+            />
+
           </div>
 
           <div style={{ fontSize: '16px', color: status === 'connected' ? '#39ff14' : '#f87171', fontWeight: 'bold' }}>

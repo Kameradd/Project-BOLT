@@ -3,6 +3,7 @@ import rpmBackground from '../assets/rpm-bg.svg';
 import rpmBar from '../assets/rpm-bar.svg';
 import rpmNeedle from '../assets/rpmNeedle.svg';
 import numberbg from '../assets/number.svg';
+import anotherbg from '../assets/other-bg.svg';
 
 // 1. Tambahkan props speedChannel dan gearChannel
 const RpmGauge = ({ telemetryRef, channelName, speedChannel, gearChannel }) => {
@@ -30,13 +31,24 @@ const RpmGauge = ({ telemetryRef, channelName, speedChannel, gearChannel }) => {
     useEffect(() => {
         let angle = 0; // Hanya untuk simulasi
         const renderFrame = () => {
-            /*
+
             //mode simulasi
             const simulatedRpm = Math.abs(Math.sin(angle) * 15000);
             setCurrentRpm(simulatedRpm);
             angle += 0.001;
-            
-            */
+
+            const simulatedSpeed = Math.abs(Math.sin(angle) * 180);
+            setCurrentSpeed(simulatedSpeed);
+            angle += 0.001;
+
+            const simulatedGear = Math.min(6, Math.floor(Math.abs(Math.sin(angle)) * 7));
+            let gearVal = simulatedGear;
+            if (simulatedGear == 0) gearVal = 'N';
+
+            setCurrentGear(gearVal);
+
+            angle += 0.001;
+            /*
             //mode rill
             if (telemetryRef.current) {
                 // --- AMBIL DATA RPM ---
@@ -62,6 +74,7 @@ const RpmGauge = ({ telemetryRef, channelName, speedChannel, gearChannel }) => {
                     }
                 }
             }
+                */
 
             rafRef.current = requestAnimationFrame(renderFrame);
         };
@@ -94,6 +107,22 @@ const RpmGauge = ({ telemetryRef, channelName, speedChannel, gearChannel }) => {
                     pointerEvents: 'none'
                 }}
             />
+
+            {/* LAYER 1.1: BACKGROUND STATIS YANG LAIN (FIGMA) */}
+            <img
+                src={anotherbg}
+                alt="just Background"
+                style={{
+                    position: 'absolute',
+                    top: -240,
+                    left: -210,
+                    width: '250%',
+                    height: '250%',
+                    zIndex: 1,
+                    pointerEvents: 'none'
+                }}
+            />
+
             {/* LAYER 1.5: angka (FIGMA) */}
             <img
                 src={numberbg}
@@ -149,23 +178,11 @@ const RpmGauge = ({ telemetryRef, channelName, speedChannel, gearChannel }) => {
                 style={{
                     position: 'absolute',
 
-                    /* --- OPSI A: KALAU KAMU PAKAI TRIK FIGMA DI ATAS --- */
                     top: -0,   // Samakan dengan background
                     left: -0,  // Samakan dengan background
                     width: '100%',
                     height: '100%',
                     transformOrigin: 'center center', // Karena sumbunya sudah di tengah frame
-
-                    /* --- OPSI B: KALAU JARUMNYA DI-EXPORT KECIL (CUMA JARUMNYA SAJA) --- * /
-                    // top: '50%',
-                    // left: '50%',
-                    // width: '20px',      // Sesuaikan lebar jarum asli
-                    // height: '120px',    // Sesuaikan panjang jarum asli
-                    // marginTop: '-100px', // Geser ke atas agar pangkalnya pas di tengah layar
-                    // marginLeft: '-10px', // Geser ke kiri (setengah lebar)
-                    // transformOrigin: '50% 85%', // Titik tumpu: X di tengah (50%), Y agak ke bawah (85%)
-                    /* ------------------------------------------------------------------- */
-
                     zIndex: 4,
                     pointerEvents: 'none',
 
@@ -206,7 +223,8 @@ const RpmGauge = ({ telemetryRef, channelName, speedChannel, gearChannel }) => {
                     alignItems: 'center',
                     justifyContent: 'center',
                     position: 'relative',
-                    top: '30px',
+                    top: 30,
+                    left: -30,
                     zIndex: 5
                 }}>
                     {Math.round(currentSpeed)}
@@ -224,8 +242,8 @@ const RpmGauge = ({ telemetryRef, channelName, speedChannel, gearChannel }) => {
                     alignItems: 'center',
                     justifyContent: 'center',
                     position: 'relative',
-                    top: '63px',
-                    left: '30px',
+                    top: 63,
+                    left: 30,
                     zIndex: 5
                 }}>
 
