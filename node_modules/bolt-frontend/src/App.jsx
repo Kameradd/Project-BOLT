@@ -120,7 +120,7 @@ const App = () => {
       {/* HEADER DIROMBAK UNTUK MENU NAVIGASI */}
       <header className="topbar" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
         <div>
-          <h1 style={{ color: '#39ff14' }}>BOLT</h1>
+          <h1 style={{ color: '#CE2027' }}>BOLT</h1>
           <p>Bimasakti On-site Live Telemetry</p>
         </div>
 
@@ -129,9 +129,9 @@ const App = () => {
             onClick={() => setActiveTab("dashboard")}
             style={{
               padding: '10px 20px',
-              backgroundColor: activeTab === "dashboard" ? "#39ff14" : "transparent",
+              backgroundColor: activeTab === "dashboard" ? "#CE2027" : "transparent",
               color: activeTab === "dashboard" ? "black" : "white",
-              border: '1px solid #39ff14', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold'
+              border: '1px solid #CE2027', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold'
             }}
           >
             HUD VIEW
@@ -152,17 +152,24 @@ const App = () => {
 
       {/* RUANGAN 1: DASHBOARD HUD F1 KITA */}
       {activeTab === "dashboard" && (
-        <section className="card" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '60vh' }}>
-          <h2 style={{ color: '#9ca3af', letterSpacing: '4px', marginBottom: '30px' }}>RACE DASHBOARD</h2>
+        // 1. Aku ubah minHeight dari 60vh menjadi 80vh agar kotaknya lebih panjang ke bawah memenuhi layar
+        <section className="card" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '80vh' }}>
 
-          {/* Gauge RPM kita menyedot data langsung dari telemetryRef.
-              Asumsi dari kode koormu, nama sensornya "ECU_RPM" */}
-          <RpmGauge telemetryRef={telemetryRef}
-            channelName="ECU_RPM"
-            speedChannel="GPS_Speed"
-            gearChannel="Gear"
-          />
-          <div style={{ marginTop: '40px', fontSize: '14px', color: status === 'connected' ? '#39ff14' : '#f87171' }}>
+          {/* 2. RAHASIANYA DI SINI: Kita bungkus RpmGauge dengan div "Kaca Pembesar" */}
+          <div style={{
+            transform: 'scale(1.4)', /* <--- Ubah angka 1.8 ini. 1.0 ukuran asli, 2.0 dua kali lipat */
+            transformOrigin: 'top center',
+            marginBottom: '150px' /* Memberi ruang di bawah karena efek scale */
+          }}>
+            <RpmGauge
+              telemetryRef={telemetryRef}
+              channelName="ECU_RPM"
+              speedChannel="GPS_Speed"
+              gearChannel="Gear"
+            />
+          </div>
+
+          <div style={{ fontSize: '16px', color: status === 'connected' ? '#39ff14' : '#f87171', fontWeight: 'bold' }}>
             SYSTEM STATUS: {status.toUpperCase()}
           </div>
         </section>
