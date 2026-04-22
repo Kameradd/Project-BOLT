@@ -56,7 +56,7 @@ const EcuGauge = ({ telemetryRef, channelName = "ECU_Temp" }) => {
 
     // --- RUMUS SLIDING WINDOW MASK ---
     // Tentukan berapa persen tinggi gambar yang mau diperlihatkan (misal 25%)
-    const windowHeight = 3;
+    const windowHeight = 1;
 
     // Posisi Y meluncur berdasarkan suhu:
     // Suhu 0 -> Jendela di bawah. Suhu 100 -> Jendela di atas.

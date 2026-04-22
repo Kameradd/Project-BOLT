@@ -238,6 +238,7 @@ const App = () => {
           )}
         </section>
       )}
+      <p>By: Kertya & Didan</p>
 
     </main>
   );
