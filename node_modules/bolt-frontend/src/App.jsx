@@ -160,7 +160,7 @@ const App = () => {
           {/* 2. RAHASIANYA DI SINI: Kita bungkus RpmGauge dengan div "Kaca Pembesar" */}
           <div style={{
             position: 'relative', /* Wajib ditambah relative agar tumpang tindihnya pas */
-            transform: 'scale(1.8)', /* <--- Ubah angka 1.8 ini. 1.0 ukuran asli, 2.0 dua kali lipat */
+            transform: 'scale(1.6)', /* <--- Ubah angka 1.8 ini. 1.0 ukuran asli, 2.0 dua kali lipat */
             transformOrigin: 'top center',
             marginBottom: '150px' /* Memberi ruang di bawah karena efek scale */
           }}>

@@ -1,20 +1,22 @@
 import React, { useEffect, useState, useRef } from 'react';
 // Pastikan file soc-bms.svg sudah ada di folder assets
 import socBar from '../assets/soc-bms.svg';
-
+import hyon from '../assets/hy-on.svg';
 // Tambahkan props untuk channel baru
 const BmsGauge = ({
     telemetryRef,
     channelName = "BMS_SOC",
     voltageChannel = "BMS_V",
     currentChannel = "BMS_A",
-    tempChannel = "BMS_Temp_Max"
+    tempChannel = "BMS_Temp_Max",
+    hyStatusChannel = "HY_Status" // 1. TAMBAHAN PROPS (Opsional untuk nanti)
 }) => {
     // State untuk menampung data
     const [currentSoc, setCurrentSoc] = useState(0);
     const [bmsVoltage, setBmsVoltage] = useState(0);
     const [bmsCurrent, setBmsCurrent] = useState(0);
     const [bmsTemp, setBmsTemp] = useState(0);
+    const [hyStatus, setHyStatus] = useState(0);
 
     const rafRef = useRef(null);
 
@@ -28,11 +30,12 @@ const BmsGauge = ({
             const simulatedVoltage = 500 + Math.sin(angle * 10) * 40; // Simulasi 460V - 540V
             const simulatedCurrent = Math.sin(angle * 20) * 90;      // Simulasi -100A (Regen) sampai 100A
             const simulatedTemp = 40 + Math.abs(Math.sin(angle * 5)) * 30; // Simulasi 40°C - 70°C
-
+            const simulatedHyStatus = Math.floor(angle * 5) % 2;         // Menghasilkan angka 0 atau 1 secara bergantian
             setCurrentSoc(simulatedSoc);
             setBmsVoltage(simulatedVoltage);
             setBmsCurrent(simulatedCurrent);
             setBmsTemp(simulatedTemp);
+            setHyStatus(simulatedHyStatus);
 
             angle += 0.005; // Kecepatan simulasi
 
@@ -71,7 +74,7 @@ const BmsGauge = ({
 
         rafRef.current = requestAnimationFrame(renderFrame);
         return () => { if (rafRef.current) cancelAnimationFrame(rafRef.current); };
-    }, [telemetryRef, channelName, voltageChannel, currentChannel, tempChannel]);
+    }, [telemetryRef, channelName, voltageChannel, currentChannel, tempChannel, hyStatusChannel]);
 
     // Batasi nilai agar tidak error (0 - 100)
     const maxSoc = 100;
@@ -85,7 +88,6 @@ const BmsGauge = ({
     const rectHeight = `${fillPercentage * 100}%`;
 
     return (
-        // Wrapper transparan, diposisikan tumpang tindih dengan RpmGauge
         <div style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', zIndex: 4, pointerEvents: 'none' }}>
 
             <svg
@@ -101,12 +103,7 @@ const BmsGauge = ({
             >
                 <defs>
                     <clipPath id="socClipPath">
-                        <rect
-                            x="0"
-                            y={yPosition}
-                            width="100%"
-                            height={rectHeight}
-                        />
+                        <rect x="0" y={yPosition} width="100%" height={rectHeight} />
                     </clipPath>
                 </defs>
 
@@ -118,54 +115,35 @@ const BmsGauge = ({
                 />
             </svg>
 
-            {/* --- KUMPULAN ANGKA DIGITAL --- */}
+            {/* 3. TAMBAHAN GAMBAR HYBRID ON/OFF DI SINI */}
+            <img
+                src={hyon}
+                alt="Hybrid Status"
+                style={{
+                    position: 'absolute',
+                    top: 132,
+                    right: -242,
+                    width: 120,
+                    opacity: hyStatus === 1 ? 1 : 0, // Logika nyala mati (1 = muncul, 0 = hilang)
+                    transition: 'opacity 0.2s ease-in-out',
+                    filter: 'drop-shadow(0px 0px 8px rgba(255, 234, 0, 0.8))' // Efek glow kuning
+                }}
+            />
 
-            {/* 1. Angka SOC (Persentase) */}
-            <h1 style={{
-                position: 'absolute',
-                top: 110,
-                left: 360,
-                fontFamily: "'Orbitron', sans-serif",
-                fontSize: '16px',
-                fontWeight: 'bold',
-                color: '#ffffff',
-            }}>
+            {/* --- KUMPULAN ANGKA DIGITAL --- */}
+            <h1 style={{ position: 'absolute', top: 110, left: 360, fontFamily: "'Orbitron', sans-serif", fontSize: '16px', fontWeight: 'bold', color: '#ffffff' }}>
                 {currentSoc.toPrecision(3)}%
             </h1>
 
-            {/* 2. Angka BMS Voltage (Tegangan) */}
-            <h1 style={{
-                position: 'absolute',
-                top: 30,     /* <--- GESER ANGKA INI UNTUK MENYESUAIKAN POSISI DI FIGMAMU */
-                right: -90,    /* <--- GESER ANGKA INI UNTUK MENYESUAIKAN POSISI DI FIGMAMU */
-                fontFamily: "'Orbitron', sans-serif",
-                fontSize: '20px',
-                color: '#ffffff', // Warna Cyan (bisa diubah)
-            }}>
+            <h1 style={{ position: 'absolute', top: 30, right: -90, fontFamily: "'Orbitron', sans-serif", fontSize: '20px', color: '#ffffff' }}>
                 {Math.round(bmsVoltage)}
             </h1>
 
-            {/* 3. Angka BMS Current (Arus) */}
-            <h1 style={{
-                position: 'absolute',
-                top: 0,     /* <--- GESER ANGKA INI UNTUK MENYESUAIKAN POSISI DI FIGMAMU */
-                right: -72,    /* <--- GESER ANGKA INI UNTUK MENYESUAIKAN POSISI DI FIGMAMU */
-                fontFamily: "'Orbitron', sans-serif",
-                fontSize: '20px',
-                color: '#ffffff', // Warna Oranye/Kuning (bisa diubah)
-            }}>
+            <h1 style={{ position: 'absolute', top: 0, right: -72, fontFamily: "'Orbitron', sans-serif", fontSize: '20px', color: '#ffffff' }}>
                 {Math.round(bmsCurrent)}
             </h1>
 
-            {/* 4. Angka BMS Temperature (Suhu) */}
-            <h1 style={{
-                position: 'absolute',
-                top: 57,
-                right: -106,
-                fontFamily: "'Orbitron', sans-serif",
-                fontSize: '20px',
-                color: bmsTemp > 60 ? '#ffff00' : '#ffffff', // Merah jika > 60 derajat, hijau jika aman
-            }}>
+            <h1 style={{ position: 'absolute', top: 57, right: -106, fontFamily: "'Orbitron', sans-serif", fontSize: '20px', color: bmsTemp > 60 ? '#ffff00' : '#ffffff' }}>
                 {Math.round(bmsTemp)}
             </h1>
 
