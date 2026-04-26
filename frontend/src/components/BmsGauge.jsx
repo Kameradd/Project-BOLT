@@ -39,10 +39,11 @@ const BmsGauge = ({
             setHyStatus(simulatedHyStatus);
 
             angle += 0.005; // Kecepatan simulasi
-
             */
+
             // --- MODE RILL MENGGUNAKAN DATA TELEMETRI ---
             // --- KODE ASLI (Buka komen ini saat pakai data mobil) ---
+
             if (telemetryRef.current) {
                 // 1. Ambil SOC
                 if (telemetryRef.current.channels[channelName]) {
@@ -76,6 +77,7 @@ const BmsGauge = ({
             };
 
 
+
             rafRef.current = requestAnimationFrame(renderFrame);
         };
 
@@ -101,10 +103,10 @@ const BmsGauge = ({
                 width="100%" height="100%"
                 style={{
                     position: 'absolute',
-                    top: 147,
-                    left: 316,
-                    width: '38.5%',
-                    height: '38.5%',
+                    top: 148,
+                    left: 320,
+                    width: '36%',
+                    height: '36%',
                     filter: 'drop-shadow(0px 0px 6px rgba(255, 255, 255, 0.4))'
                 }}
             >

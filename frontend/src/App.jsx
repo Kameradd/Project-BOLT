@@ -7,6 +7,7 @@ import EcuGauge from "./components/EcuGauge.jsx";
 import GforceAndSteering from "./components/GforceAndSteering.jsx";
 import ThrottleAndBrake from "./components/ThrottleAndBrake.jsx";
 import logoBimsak from "./assets/white_no bg.svg";
+import TimeStamp from "./components/TimeStamp.jsx";
 import "./styles.css";
 
 const PLOT_COLORS = [
@@ -192,63 +193,81 @@ const App = () => {
               marginTop: '4px',
               fontFamily: "'Formula1-Regular', sans-serif"
             }}>Bimasakti On-site Live Telemetry</p>
+            <div style={{
+              display: 'flex',
+              alignItems: 'center', /* Menyejajarkan jam dan tombol di tengah secara vertikal */
+              gap: '24px',          /* Jarak antara tulisan Jam dengan dropdown COM */
+              marginTop: '2px',
+              flexWrap: 'wrap'
+            }}>
 
-            <div style={{ display: 'flex', gap: '8px', alignItems: 'center', marginTop: '10px', flexWrap: 'wrap' }}>
-              <select
-                value={selectedComPort}
-                onChange={(event) => setSelectedComPort(event.target.value)}
-                style={{
-                  minWidth: '120px',
-                  padding: '6px 8px',
-                  backgroundColor: '#111827',
-                  color: '#e5e7eb',
-                  border: '1px solid #334155',
-                  borderRadius: '6px'
-                }}
-              >
-                <option value="">Select COM</option>
-                {availablePorts.map((port) => (
-                  <option key={port.path} value={port.path}>
-                    {port.path}
-                  </option>
-                ))}
-              </select>
+              {/* 1. Komponen Jam */}
+              <div style={{
+                minWidth: '300px',
+              }}>
+                <TimeStamp telemetryRef={telemetryRef} channelName="TimeSampling" />
+              </div>
 
-              <button
-                onClick={requestPortList}
-                style={{
-                  padding: '6px 10px',
-                  backgroundColor: 'transparent',
-                  color: '#e2e8f0',
-                  border: '1px solid #64748b',
-                  borderRadius: '6px',
-                  cursor: 'pointer',
-                  fontWeight: 'bold'
-                }}
-              >
-                Refresh COM
-              </button>
+              {/* 2. Rentetan Tombol COM Port */}
+              <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
+                <select
+                  value={selectedComPort}
+                  onChange={(event) => setSelectedComPort(event.target.value)}
+                  style={{
+                    minWidth: '120px',
+                    padding: '6px 8px',
+                    backgroundColor: '#111827',
+                    color: '#e5e7eb',
+                    border: '1px solid #334155',
+                    borderRadius: '6px'
+                  }}
+                >
+                  <option value="">Select COM</option>
+                  {availablePorts.map((port) => (
+                    <option key={port.path} value={port.path}>
+                      {port.path}
+                    </option>
+                  ))}
+                </select>
 
-              <button
-                onClick={handleSwitchPort}
-                disabled={!selectedComPort}
-                style={{
-                  padding: '6px 10px',
-                  backgroundColor: selectedComPort ? '#22d3ee' : '#1f2937',
-                  color: selectedComPort ? '#0f172a' : '#94a3b8',
-                  border: '1px solid #22d3ee',
-                  borderRadius: '6px',
-                  cursor: selectedComPort ? 'pointer' : 'not-allowed',
-                  fontWeight: 'bold'
-                }}
-              >
-                Use Port
-              </button>
+                <button
+                  onClick={requestPortList}
+                  style={{
+                    padding: '6px 10px',
+                    backgroundColor: 'transparent',
+                    color: '#e2e8f0',
+                    border: '1px solid #64748b',
+                    borderRadius: '6px',
+                    cursor: 'pointer',
+                    fontWeight: 'bold'
+                  }}
+                >
+                  Refresh COM
+                </button>
 
-              <span style={{ color: '#93c5fd', fontSize: '12px' }}>
-                Active: {currentComPortRef.current || 'n/a'}
-              </span>
+                <button
+                  onClick={handleSwitchPort}
+                  disabled={!selectedComPort}
+                  style={{
+                    padding: '6px 10px',
+                    backgroundColor: selectedComPort ? '#22d3ee' : '#1f2937',
+                    color: selectedComPort ? '#0f172a' : '#94a3b8',
+                    border: '1px solid #22d3ee',
+                    borderRadius: '6px',
+                    cursor: selectedComPort ? 'pointer' : 'not-allowed',
+                    fontWeight: 'bold'
+                  }}
+                >
+                  Use Port
+                </button>
+
+                <span style={{ color: '#93c5fd', fontSize: '12px' }}>
+                  Active: {currentComPortRef.current || 'n/a'}
+                </span>
+              </div>
             </div>
+
+
             <p style={{ margin: '6px 0 0', fontSize: '12px', color: '#94a3b8' }}>
               {comActionStatus}
             </p>
@@ -338,6 +357,12 @@ const App = () => {
               telemetryRef={telemetryRef}
               throttleChannel="throttle"
               brakeChannel="RawBrake"
+            />
+
+            {/* Timestamp */}
+            <TimeStamp
+              telemetryRef={telemetryRef}
+              channelName="TimeSampling"
             />
 
           </div>

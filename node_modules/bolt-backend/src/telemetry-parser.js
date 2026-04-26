@@ -170,7 +170,7 @@ export const inspectTelemetryPayload = (payload, options = {}) => {
     return { values: null, channels: null, reason: "empty_payload", format: "unknown" };
   }
 
-  if (text.startsWith("{")) {
+  if (text.includes("{")) {
     const parsed = tryParseJsonObject(text);
     if (!parsed || Array.isArray(parsed) || typeof parsed !== "object") {
       return { values: null, channels: null, reason: "invalid_json", format: "json" };
