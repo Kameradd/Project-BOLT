@@ -263,6 +263,24 @@ const buildRealisticPayload = (cursor) => {
   const brakeBase = bounded(Math.round(brakeNorm * 1000), 0, 1000);
 
   const fieldValues = {
+    TimeSampling: timeSeconds.toFixed(2),
+    bmsVolts: 540 + waveformValue(basePhase * 0.03, "sine") * 5,
+    bmsTemp: 34 + waveformValue(basePhase * 0.02, "sine") * 3,
+    bmsCurrent: -18 + (throttleNorm * 90) - (brakeNorm * 50) + waveformValue(basePhase * 0.4, "sine") * 3,
+    bmsSOC: bounded(840 - (timeSeconds * 0.02), 600, 860),
+    engineTemp: 70 + waveformValue(basePhase * 0.015, "sine") * 7,
+    ECUBattV: 132 + waveformValue(basePhase * 0.06, "sine") * 2,
+    speed: Math.round(speedKph),
+    RPM: Math.round(ecuRpm),
+    throttle: Math.round(throttleNorm * 100),
+    steering: 1500 + waveformValue(basePhase * 0.22, "triangle") * 350,
+    HyStatus: (Math.sin(basePhase * 0.1) > 0) ? 1 : 0,
+    imuAx: waveformValue(basePhase * 1.9, wave) * 110,
+    imuAy: waveformValue(basePhase * 1.8 + 1.1, wave) * 95,
+    imuGz: waveformValue(basePhase * 1.0 + 2.1, wave) * 200
+  };
+  /*
+  const fieldValues = {
     Timestamp: cursor,
     SystemOK: 1,
     DataValidity: 1,
@@ -304,7 +322,7 @@ const buildRealisticPayload = (cursor) => {
     Motor_L: ecuRpm * (0.18 + throttleNorm * 0.24),
     Motor_R: ecuRpm * (0.17 + throttleNorm * 0.25)
   };
-
+  */
   const words = [];
   for (let index = 0; index < wordCount; index += 1) {
     const field = TELEMETRY_FIELDS[index];

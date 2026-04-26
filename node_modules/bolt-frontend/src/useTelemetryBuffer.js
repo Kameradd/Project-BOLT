@@ -10,6 +10,9 @@ const DEFAULT_CHANNEL =
 export const useTelemetryBuffer = () => {
   const socketRef = useRef(null);
   const statusRef = useRef("disconnected");
+  const availablePortsRef = useRef([]);
+  const currentComPortRef = useRef("");
+  const comActionStatusRef = useRef("");
   const availableChannelsRef = useRef([DEFAULT_CHANNEL]);
   const telemetryRef = useRef({
     x: [],
@@ -17,6 +20,19 @@ export const useTelemetryBuffer = () => {
       [DEFAULT_CHANNEL]: []
     }
   });
+
+  const requestPortList = () => {
+    if (socketRef.current?.readyState === WebSocket.OPEN) {
+      socketRef.current.send(JSON.stringify({ type: "list_ports" }));
+    }
+  };
+
+  const switchComPort = (comPort) => {
+    if (socketRef.current?.readyState === WebSocket.OPEN && comPort) {
+      comActionStatusRef.current = `Switching to ${comPort}...`;
+      socketRef.current.send(JSON.stringify({ type: "switch_port", comPort }));
+    }
+  };
 
   useEffect(() => {
     let reconnectTimer = null;
@@ -44,6 +60,7 @@ export const useTelemetryBuffer = () => {
 
       socket.onopen = () => {
         statusRef.current = "connected";
+        requestPortList();
       };
 
       socket.onclose = () => {
@@ -61,6 +78,39 @@ export const useTelemetryBuffer = () => {
       socket.onmessage = (event) => {
         try {
           const message = JSON.parse(event.data);
+          if (message.type === "ports_list") {
+            availablePortsRef.current = Array.isArray(message.ports) ? message.ports : [];
+            currentComPortRef.current = String(message.currentComPort || currentComPortRef.current || "");
+            comActionStatusRef.current = "COM list updated";
+            return;
+          }
+
+          if (message.type === "com_state") {
+            currentComPortRef.current = String(message.currentComPort || "");
+            comActionStatusRef.current = String(message.message || "COM connected");
+            return;
+          }
+
+          if (message.type === "com_error") {
+            comActionStatusRef.current = String(message.message || "COM command failed");
+            return;
+          }
+
+          if (message.type === "error") {
+            comActionStatusRef.current = String(message.message || "Serial error");
+            return;
+          }
+
+          if (message.type === "drop") {
+            comActionStatusRef.current = String(message.reason || "Payload dropped");
+            return;
+          }
+
+          if (message.type === "status") {
+            comActionStatusRef.current = String(message.message || "Backend status");
+            return;
+          }
+
           if (message.type !== "telemetry") {
             return;
           }
@@ -156,6 +206,11 @@ export const useTelemetryBuffer = () => {
   return {
     telemetryRef,
     availableChannelsRef,
-    statusRef
+    statusRef,
+    availablePortsRef,
+    currentComPortRef,
+    comActionStatusRef,
+    requestPortList,
+    switchComPort
   };
 };

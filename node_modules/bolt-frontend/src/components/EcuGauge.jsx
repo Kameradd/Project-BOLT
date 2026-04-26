@@ -12,6 +12,7 @@ const EcuGauge = ({ telemetryRef, channelName = "ECU_Temp" }) => {
         let angle = 0; // Untuk simulasi naik turun
 
         const renderFrame = () => {
+            /*
             // --- MODE SIMULASI UNTUK TESTING ---
             // Suhu naik turun perlahan (misal dari 30 sampai 90 derajat)
             const simulatedTemp = 40 + Math.abs(Math.sin(angle)) * 60;
@@ -20,8 +21,8 @@ const EcuGauge = ({ telemetryRef, channelName = "ECU_Temp" }) => {
 
             const simulatedvbatt = 11 + Math.sin(angle * 10) * 1; // Simulasi 460V - 540V
             setVbatt(simulatedvbatt);
+            */
 
-            /*
             // --- MODE RILL MENGGUNAKAN DATA TELEMETRI ---
             // --- KODE ASLI (Buka komen ini saat pakai data mobil) ---
             //ambil data suhu ECU dari telemetry
@@ -31,14 +32,15 @@ const EcuGauge = ({ telemetryRef, channelName = "ECU_Temp" }) => {
                     setCurrentTemp(channelData[channelData.length - 1]);
                 }
             }
-            
+
             //ambil data Vbatt dari telemetry
-            if (telemetryRef.current && telemetryRef.current.channels["BMS_V"]) {
-                const vChannelData = telemetryRef.current.channels["BMS_V"];
-                if (vChannelData.length >0) {
+            if (telemetryRef.current && telemetryRef.current.channels["ECUBattV"]) {
+                const vChannelData = telemetryRef.current.channels["ECUBattV"];
+                if (vChannelData.length > 0) {
                     setVbatt(vChannelData[vChannelData.length - 1]);
                 }
-            */
+
+            }
 
             rafRef.current = requestAnimationFrame(renderFrame);
         };

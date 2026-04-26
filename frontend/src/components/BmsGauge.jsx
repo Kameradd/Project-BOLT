@@ -25,6 +25,7 @@ const BmsGauge = ({
 
         const renderFrame = () => {
 
+            /*
             // --- MODE SIMULASI UNTUK TESTING ---
             const simulatedSoc = (1 - Math.abs((angle % 2) - 1)) * 100;
             const simulatedVoltage = 500 + Math.sin(angle * 10) * 40; // Simulasi 460V - 540V
@@ -39,7 +40,7 @@ const BmsGauge = ({
 
             angle += 0.005; // Kecepatan simulasi
 
-            /*
+            */
             // --- MODE RILL MENGGUNAKAN DATA TELEMETRI ---
             // --- KODE ASLI (Buka komen ini saat pakai data mobil) ---
             if (telemetryRef.current) {
@@ -48,7 +49,7 @@ const BmsGauge = ({
                     const socData = telemetryRef.current.channels[channelName];
                     if (socData.length > 0) setCurrentSoc(socData[socData.length - 1]);
                 }
-                
+
                 // 2. Ambil Voltage
                 if (telemetryRef.current.channels[voltageChannel]) {
                     const vData = telemetryRef.current.channels[voltageChannel];
@@ -66,8 +67,14 @@ const BmsGauge = ({
                     const tData = telemetryRef.current.channels[tempChannel];
                     if (tData.length > 0) setBmsTemp(tData[tData.length - 1]);
                 }
-            }
-            */
+
+                // 5. Ambil Hybrid Status
+                if (telemetryRef.current.channels[hyStatusChannel]) {
+                    const hyData = telemetryRef.current.channels[hyStatusChannel];
+                    if (hyData.length > 0) setHyStatus(hyData[hyData.length - 1]);
+                }
+            };
+
 
             rafRef.current = requestAnimationFrame(renderFrame);
         };

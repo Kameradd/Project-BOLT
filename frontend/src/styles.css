@@ -1,5 +1,19 @@
 @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;700;900&display=swap');
 
+@font-face {
+  font-family: 'Formula1-Bold';
+  src: url('./assets/f1-font/Formula1-Bold_web_0.ttf') format('truetype');
+  font-weight: bold;
+  font-style: normal;
+}
+
+@font-face {
+  font-family: 'Formula1-Regular';
+  src: url('./assets/f1-font/Formula1-Regular_web_0.ttf') format('truetype');
+  font-weight: normal;
+  font-style: normal;
+}
+
 * {
   box-sizing: border-box;
 }
@@ -26,6 +40,7 @@ body {
 .topbar h1 {
   margin: 0;
   font-size: 32px;
+  font-family: 'Formula1', sans-serif;
 }
 
 .topbar p {

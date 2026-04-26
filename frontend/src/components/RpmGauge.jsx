@@ -32,7 +32,8 @@ const RpmGauge = ({ telemetryRef, channelName, speedChannel, gearChannel }) => {
         let angle = 0; // Hanya untuk simulasi
         const renderFrame = () => {
 
-            //mode simulasi
+            //mode 
+            /*
             const simulatedRpm = Math.abs(Math.sin(angle) * 15000);
             setCurrentRpm(simulatedRpm);
             angle += 0.001;
@@ -48,7 +49,7 @@ const RpmGauge = ({ telemetryRef, channelName, speedChannel, gearChannel }) => {
             setCurrentGear(gearVal);
 
             angle += 0.001;
-            /*
+            */
             //mode rill
             if (telemetryRef.current) {
                 // --- AMBIL DATA RPM ---
@@ -74,7 +75,7 @@ const RpmGauge = ({ telemetryRef, channelName, speedChannel, gearChannel }) => {
                     }
                 }
             }
-                */
+
 
             rafRef.current = requestAnimationFrame(renderFrame);
         };

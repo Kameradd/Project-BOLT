@@ -1,6 +1,6 @@
 import { config } from "./config.js";
 import { TelemetrySource } from "./serial-source.js";
-import { parseHexPayload } from "./telemetry-parser.js";
+import { inspectTelemetryPayload } from "./telemetry-parser.js";
 
 const source = new TelemetrySource(config);
 
@@ -13,13 +13,16 @@ source.on("error", (error) => {
 });
 
 source.on("payload", (payload) => {
-  const values = parseHexPayload(payload, config.telemetryWords);
-  if (!values) {
-    console.warn(`[DROP] Invalid payload format: ${payload}`);
+  const inspection = inspectTelemetryPayload(payload, {
+    expectedWords: config.telemetryWords,
+    schema: []
+  });
+  if (!inspection.values) {
+    console.warn(`[DROP] ${inspection.reason || "invalid_payload"}: ${payload}`);
     return;
   }
 
-  console.log(`[RAW] ${payload} | [PARSED] ${values.join(", ")}`);
+  console.log(`[RAW/${inspection.format}] ${payload} | [PARSED] ${inspection.values.join(", ")}`);
 });
 
 process.on("SIGINT", async () => {

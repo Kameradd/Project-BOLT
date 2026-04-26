@@ -4,6 +4,10 @@ import { useTelemetryBuffer } from "./useTelemetryBuffer.js";
 import RpmGauge from "./components/RpmGauge.jsx";
 import BmsGauge from "./components/BmsGauge.jsx";
 import EcuGauge from "./components/EcuGauge.jsx";
+import GforceAndSteering from "./components/GforceAndSteering.jsx";
+import ThrottleAndBrake from "./components/ThrottleAndBrake.jsx";
+import logoBimsak from "./assets/white_no bg.svg";
+import "./styles.css";
 
 const PLOT_COLORS = [
   "#22d3ee",
@@ -75,8 +79,20 @@ const buildPlotGroups = (channels) => {
 
 
 const App = () => {
-  const { telemetryRef, availableChannelsRef, statusRef } = useTelemetryBuffer();
+  const {
+    telemetryRef,
+    availableChannelsRef,
+    statusRef,
+    availablePortsRef,
+    currentComPortRef,
+    comActionStatusRef,
+    requestPortList,
+    switchComPort
+  } = useTelemetryBuffer();
   const [status, setStatus] = useState("disconnected");
+  const [availablePorts, setAvailablePorts] = useState([]);
+  const [selectedComPort, setSelectedComPort] = useState("");
+  const [comActionStatus, setComActionStatus] = useState("");
 
   // STATE BARU: Untuk mengatur Menu Tab
   const [activeTab, setActiveTab] = useState("dashboard");
@@ -90,6 +106,28 @@ const App = () => {
   useEffect(() => {
     const timer = setInterval(() => {
       setStatus(statusRef.current);
+      setComActionStatus(comActionStatusRef.current || "");
+
+      const nextPorts = Array.isArray(availablePortsRef.current) ? availablePortsRef.current : [];
+      setAvailablePorts((prev) => {
+        const prevPaths = prev.map((port) => port.path);
+        const nextPaths = nextPorts.map((port) => port.path);
+        return arraysEqual(prevPaths, nextPaths) ? prev : [...nextPorts];
+      });
+
+      const activePort = String(currentComPortRef.current || "");
+      setSelectedComPort((prev) => {
+        // Keep user selection while choosing another port; only auto-sync when unset/invalid.
+        if (!prev && activePort) {
+          return activePort;
+        }
+
+        if (prev && nextPorts.some((port) => port.path === prev)) {
+          return prev;
+        }
+
+        return activePort || prev;
+      });
 
       const nextChannels = availableChannelsRef.current;
       setAvailableChannels((prev) => (arraysEqual(prev, nextChannels) ? prev : [...nextChannels]));
@@ -106,7 +144,7 @@ const App = () => {
     }, 250);
 
     return () => clearInterval(timer);
-  }, [availableChannelsRef, statusRef]);
+  }, [availableChannelsRef, statusRef, availablePortsRef, currentComPortRef, comActionStatusRef]);
 
   const toggleChannel = (channel) => {
     setSelectedChannels((prev) => {
@@ -117,14 +155,107 @@ const App = () => {
     });
   };
 
+  const handleSwitchPort = () => {
+    if (selectedComPort) {
+      switchComPort(selectedComPort);
+    }
+  };
+
   return (
     <main className="layout">
       {/* HEADER DIROMBAK UNTUK MENU NAVIGASI */}
-      <header className="topbar" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-        <div>
-          <h1 style={{ color: '#CE2027' }}>BOLT</h1>
-          <p>Bimasakti On-site Live Telemetry</p>
+      <header className="topbar" style={{
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: '20px'
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
+          {/* Logo Bimasakti */}
+          <img src={logoBimsak} alt="Logo Bimasakti"
+            style={{ width: '120px' }} />
+
+          {/* Teks bolt */}
+          <div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
+              <h1 style={{
+                color: '#CE2027',
+                margin: 0,
+                fontFamily: "'Formula1-Bold', sans-serif"
+              }}>BOLT</h1>
+              <div style={{ fontSize: '14px', color: status === 'connected' ? '#CE2027' : '#454545', fontWeight: 'bold' }}>
+                SYSTEM STATUS: {status.toUpperCase()}
+              </div>
+            </div>
+            <p style={{
+              margin: 0,
+              marginTop: '4px',
+              fontFamily: "'Formula1-Regular', sans-serif"
+            }}>Bimasakti On-site Live Telemetry</p>
+
+            <div style={{ display: 'flex', gap: '8px', alignItems: 'center', marginTop: '10px', flexWrap: 'wrap' }}>
+              <select
+                value={selectedComPort}
+                onChange={(event) => setSelectedComPort(event.target.value)}
+                style={{
+                  minWidth: '120px',
+                  padding: '6px 8px',
+                  backgroundColor: '#111827',
+                  color: '#e5e7eb',
+                  border: '1px solid #334155',
+                  borderRadius: '6px'
+                }}
+              >
+                <option value="">Select COM</option>
+                {availablePorts.map((port) => (
+                  <option key={port.path} value={port.path}>
+                    {port.path}
+                  </option>
+                ))}
+              </select>
+
+              <button
+                onClick={requestPortList}
+                style={{
+                  padding: '6px 10px',
+                  backgroundColor: 'transparent',
+                  color: '#e2e8f0',
+                  border: '1px solid #64748b',
+                  borderRadius: '6px',
+                  cursor: 'pointer',
+                  fontWeight: 'bold'
+                }}
+              >
+                Refresh COM
+              </button>
+
+              <button
+                onClick={handleSwitchPort}
+                disabled={!selectedComPort}
+                style={{
+                  padding: '6px 10px',
+                  backgroundColor: selectedComPort ? '#22d3ee' : '#1f2937',
+                  color: selectedComPort ? '#0f172a' : '#94a3b8',
+                  border: '1px solid #22d3ee',
+                  borderRadius: '6px',
+                  cursor: selectedComPort ? 'pointer' : 'not-allowed',
+                  fontWeight: 'bold'
+                }}
+              >
+                Use Port
+              </button>
+
+              <span style={{ color: '#93c5fd', fontSize: '12px' }}>
+                Active: {currentComPortRef.current || 'n/a'}
+              </span>
+            </div>
+            <p style={{ margin: '6px 0 0', fontSize: '12px', color: '#94a3b8' }}>
+              {comActionStatus}
+            </p>
+          </div>
+
         </div>
+
 
         <nav style={{ display: 'flex', gap: '10px' }}>
           <button
@@ -155,7 +286,15 @@ const App = () => {
       {/* RUANGAN 1: DASHBOARD HUD F1 KITA */}
       {activeTab === "dashboard" && (
         // 1. Aku ubah minHeight dari 60vh menjadi 80vh agar kotaknya lebih panjang ke bawah memenuhi layar
-        <section className="card" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '80vh' }}>
+        <section className="card"
+          style={{
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            minHeight: '80vh',
+            border: 'none',
+          }}>
 
           {/* 2. RAHASIANYA DI SINI: Kita bungkus RpmGauge dengan div "Kaca Pembesar" */}
           <div style={{
@@ -166,29 +305,41 @@ const App = () => {
           }}>
             <RpmGauge
               telemetryRef={telemetryRef}
-              channelName="ECU_RPM"
-              speedChannel="GPS_Speed"
+              channelName="RPM"
+              speedChannel="speed"
               gearChannel="Gear"
             />
 
             {/* Baterai Bimasakti ditumpuk di atasnya */}
             <BmsGauge
               telemetryRef={telemetryRef}
-              channelName="BMS_SOC"
-              voltageChannel="BMS_V"
-              currentChannel="BMS_A"
-              tempChannel="BMS_Temp_Max"
+              channelName="bmsSOC"
+              voltageChannel="bmsVolts"
+              currentChannel="bmsCurrent"
+              tempChannel="bmsTemp"
+              hyStatusChannel="HyStatus"
             />
             {/* Indikator ECU Temp dengan Sliding Mask */}
             <EcuGauge
               telemetryRef={telemetryRef}
-              channelName="ECU_Temp"
+              channelName="engineTemp"
             />
 
-          </div>
+            {/* G-Force Vector & Steering Angle */}
+            <GforceAndSteering
+              telemetryRef={telemetryRef}
+              channelNameimuAx="imuAx"
+              channelNameimuAy="imuAy"
+              channelNameSteering="steering"
+            />
 
-          <div style={{ fontSize: '16px', color: status === 'connected' ? '#39ff14' : '#f87171', fontWeight: 'bold' }}>
-            SYSTEM STATUS: {status.toUpperCase()}
+            {/*Throttle and Brake*/}
+            <ThrottleAndBrake
+              telemetryRef={telemetryRef}
+              throttleChannel="throttle"
+              brakeChannel="RawBrake"
+            />
+
           </div>
         </section>
       )}

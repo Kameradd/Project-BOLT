@@ -1,6 +1,6 @@
 import { TelemetrySource } from "./serial-source.js";
 import { config } from "./config.js";
-import { parseHexPayload } from "./telemetry-parser.js";
+import { inspectTelemetryPayload } from "./telemetry-parser.js";
 
 const toNumber = (value, fallback) => {
   const parsed = Number(value);
@@ -33,8 +33,10 @@ const run = async () => {
 
   source.on("payload", (payload) => {
     stats.payload += 1;
-    const values = parseHexPayload(payload, config.telemetryWords);
-    if (!values) {
+    const inspection = inspectTelemetryPayload(payload, {
+      expectedWords: config.telemetryWords
+    });
+    if (!inspection.values) {
       stats.invalid += 1;
       return;
     }
