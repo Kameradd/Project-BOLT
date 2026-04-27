@@ -123,6 +123,23 @@ const tokenizeWords = (payload) => {
   return extracted;
 };
 
+const isLikelyHexPayload = (payload) => {
+  const text = String(payload || "").trim().toUpperCase();
+  if (!text) {
+    return false;
+  }
+
+  if (/^0X[0-9A-F]+(?:[\s,;:_\-|]+0X[0-9A-F]+)*$/.test(text)) {
+    return true;
+  }
+
+  if (/^[0-9A-F\s,;:_\-|]+$/.test(text)) {
+    return true;
+  }
+
+  return false;
+};
+
 export const inspectHexPayload = (hexString, expectedWords) => {
   const words = tokenizeWords(hexString);
   if (words.length === 0) {
@@ -196,18 +213,37 @@ export const inspectTelemetryPayload = (payload, options = {}) => {
       return { values, channels, reason: null, format: "json" };
     }
 
+    const numericChannels = {};
+    for (const [key, value] of Object.entries(parsed)) {
+      const numeric = toFiniteNumber(value);
+      if (numeric !== null) {
+        numericChannels[key] = numeric;
+      }
+    }
+
+    if (Object.keys(numericChannels).length === 0) {
+      return { values: null, channels: null, reason: "json_no_numeric_fields", format: "json" };
+    }
+
     let present = 0;
+    const schemaSet = new Set(schemaFields);
     for (const field of schemaFields) {
-      const numeric = toFiniteNumber(parsed[field]);
-      if (numeric === null) {
+      if (!(field in numericChannels)) {
         channels[field] = 0;
         values.push(0);
         continue;
       }
 
-      channels[field] = numeric;
-      values.push(numeric);
+      channels[field] = numericChannels[field];
+      values.push(numericChannels[field]);
       present += 1;
+    }
+
+    // Keep any additional numeric fields from payload so parser stays forward-compatible.
+    for (const [key, value] of Object.entries(numericChannels)) {
+      if (!schemaSet.has(key)) {
+        channels[key] = value;
+      }
     }
 
     if (present === 0) {
@@ -221,6 +257,11 @@ export const inspectTelemetryPayload = (payload, options = {}) => {
       reason: missing > 0 ? `json_missing_fields:${missing}` : null,
       format: "json"
     };
+  }
+
+  // Ignore non-JSON text lines that are clearly not hex telemetry payloads.
+  if (!isLikelyHexPayload(text)) {
+    return { values: null, channels: null, reason: "non_telemetry_line", format: "text" };
   }
 
   const hexInspection = inspectHexPayload(text, expectedWords);

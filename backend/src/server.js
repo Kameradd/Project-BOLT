@@ -135,6 +135,10 @@ const attachSourceHandlers = (nextSource) => {
       schema: TELEMETRY_FIELDS
     });
     if (!inspection.values) {
+      if (inspection.reason === "non_telemetry_line") {
+        return;
+      }
+
       broadcast({
         type: "drop",
         reason: inspection.reason || "invalid_payload",
@@ -153,13 +157,17 @@ const attachSourceHandlers = (nextSource) => {
     }
 
     const channels = inspection.channels || mapValuesToTelemetry(inspection.values);
+    const schema =
+      inspection.channels && typeof inspection.channels === "object"
+        ? Object.keys(inspection.channels)
+        : TELEMETRY_FIELDS;
 
     broadcast({
       type: "telemetry",
       rawHex: payload,
       values: inspection.values,
       channels,
-      schema: TELEMETRY_FIELDS,
+      schema,
       timestamp: Date.now()
     });
   });

@@ -15,7 +15,26 @@ export const TELEMETRY_FIELDS = [
   "RawBrake",
   "imuAx",
   "imuAy",
-  "imuGz"
+  "imuAz",
+  "imuGx",
+  "imuGy",
+  "imuGz",
+  "susp1Raw",
+  "susp2Raw",
+  "susp3Raw",
+  "susp4Raw",
+  "rpmPa15",
+  "rpmPb3",
+  "rpmPb5",
+  "rpmPb8",
+  "vescRpmLeft",
+  "vescRpmRight",
+  "apps1",
+  "apps2",
+  "pedal",
+  "duty",
+  "leftMotor",
+  "rightMotor"
 ];
 
 export const TELEMETRY_WORD_COUNT = TELEMETRY_FIELDS.length;
