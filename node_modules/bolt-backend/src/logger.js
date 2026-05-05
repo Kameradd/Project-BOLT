@@ -31,7 +31,7 @@ export class TelemetryLogger extends EventEmitter {
             // Create filename with timestamp
             const now = new Date();
             const timestamp = now.toISOString().replace(/[:.]/g, "-").split("Z")[0];
-            this.currentFileName = `telemetry_${timestamp}.log`;
+            this.currentFileName = `telemetry_${timestamp}.csv`;
             const filePath = path.join(this.logDir, this.currentFileName);
 
             // Create write stream with CSV header
