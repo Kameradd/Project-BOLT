@@ -3,6 +3,7 @@ import React, { useEffect, useState, useRef } from "react";
 import redDotSvg from "../assets/reddot.svg";
 import SteeringPointer from "../assets/steeringPointer.svg";
 const clamp = (value, min, max) => Math.min(Math.max(value, min), max);
+const MS2_PER_G = 9.80665;
 
 const GforceAndSteering = ({
     telemetryRef,
@@ -65,11 +66,14 @@ const GforceAndSteering = ({
         };
     }, [telemetryRef, channelNameimuAx, channelNameimuAy, channelNameSteering]);
 
+    const currentimuAxG = currentimuAx / MS2_PER_G;
+    const currentimuAyG = currentimuAy / MS2_PER_G;
+
     //kalkulasi posisi titik merah
     const maxGforce = 3;
     // Normalisasi nilai (-1.0 sampai 1.0)
-    const normalizedAx = clamp(currentimuAx, -maxGforce, maxGforce) / maxGforce;
-    const normalizedAy = clamp(currentimuAy, -maxGforce, maxGforce) / maxGforce;
+    const normalizedAx = clamp(currentimuAxG, -maxGforce, maxGforce) / maxGforce;
+    const normalizedAy = clamp(currentimuAyG, -maxGforce, maxGforce) / maxGforce;
     const circleRadiusPx = 35; // Radius lingkaran dalam piksel
 
     // Posisi X dan Y untuk titik merah
@@ -125,7 +129,7 @@ const GforceAndSteering = ({
                     color: '#ffffff',
                     whiteSpace: 'nowrap'
                 }}>
-                    {(Math.sqrt(currentimuAx ** 2 + currentimuAy ** 2)).toPrecision(2)} G
+                    {(Math.sqrt(currentimuAxG ** 2 + currentimuAyG ** 2)).toPrecision(2)} G
                 </h1>
 
             </div>

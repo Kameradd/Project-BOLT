@@ -5,6 +5,16 @@ import "uplot/dist/uPlot.min.css";
 const PLOT_HEIGHT = 260;
 const WHEEL_ZOOM_FACTOR = 1.15;
 
+const formatTimestamp = (seconds) => {
+  if (!Number.isFinite(seconds)) {
+    return "";
+  }
+
+  const date = new Date(seconds * 1000);
+  const pad = (value, size = 2) => String(value).padStart(size, "0");
+  return `${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}.${pad(date.getMilliseconds(), 3)}`;
+};
+
 const createPlotOptions = (plotTitle, width, channelLabels, lineColors, onXScaleSet) => ({
   width,
   height: PLOT_HEIGHT,
@@ -16,7 +26,8 @@ const createPlotOptions = (plotTitle, width, channelLabels, lineColors, onXScale
   axes: [
     {
       stroke: "#6b7280",
-      grid: { stroke: "#1f2937" }
+      grid: { stroke: "#1f2937" },
+      values: (u, splits) => splits.map((split) => formatTimestamp(split))
     },
     {
       stroke: "#6b7280",

@@ -20,12 +20,210 @@ export const useTelemetryBuffer = () => {
     logDir: "./logs",
     bufferSize: 0
   });
+  const replayStatusRef = useRef({
+    active: false,
+    fileName: null,
+    total: 0
+  });
+  const logsListRef = useRef([]);
+  const offlineReplayStatusRef = useRef({
+    loaded: false,
+    playing: false,
+    fileName: null,
+    total: 0,
+    playhead: 0,
+    startIndex: 0,
+    endIndex: 0,
+    windowSeconds: 10,
+    schema: []
+  });
+  const offlineReplayRowsRef = useRef([]);
+  const offlineReplayTimerRef = useRef(null);
   const telemetryRef = useRef({
     x: [],
     channels: {
       [DEFAULT_CHANNEL]: []
     }
   });
+
+  const resetTelemetryBuffer = () => {
+    const seedChannels =
+      Array.isArray(availableChannelsRef.current) && availableChannelsRef.current.length > 0
+        ? availableChannelsRef.current
+        : [DEFAULT_CHANNEL];
+
+    telemetryRef.current = {
+      x: [],
+      channels: Object.fromEntries(seedChannels.map((channel) => [channel, []]))
+    };
+  };
+
+  const clamp = (value, min, max) => Math.min(Math.max(value, min), max);
+
+  const buildOfflineWindow = () => {
+    const state = offlineReplayStatusRef.current;
+    const rows = offlineReplayRowsRef.current;
+    const schema = Array.isArray(state.schema) ? state.schema : [];
+
+    if (!state.loaded || rows.length === 0 || schema.length === 0) {
+      return null;
+    }
+
+    const playhead = clamp(state.playhead, 0, rows.length - 1);
+    const endRow = rows[playhead];
+    if (!endRow || !Number.isFinite(endRow.timestamp)) {
+      return null;
+    }
+
+    const windowMs = Math.max(1, Number(state.windowSeconds) || 10) * 1000;
+    const cutoff = endRow.timestamp - windowMs;
+    let startIndex = playhead;
+
+    while (startIndex > 0 && Number.isFinite(rows[startIndex - 1]?.timestamp) && rows[startIndex - 1].timestamp >= cutoff) {
+      startIndex -= 1;
+    }
+
+    const windowRows = rows.slice(startIndex, playhead + 1);
+    const channels = Object.fromEntries(schema.map((channel) => [channel, []]));
+    const x = [];
+
+    for (const row of windowRows) {
+      x.push(row.timestamp / 1000);
+      schema.forEach((channel, index) => {
+        const value = Array.isArray(row.values) && Number.isFinite(row.values[index]) ? row.values[index] : 0;
+        channels[channel].push(value);
+      });
+    }
+
+    return {
+      x,
+      channels,
+      startIndex,
+      endIndex: playhead,
+      startTimestamp: x[0] ?? null,
+      endTimestamp: x[x.length - 1] ?? null
+    };
+  };
+
+  const applyOfflineWindow = () => {
+    const windowData = buildOfflineWindow();
+    if (!windowData) {
+      return;
+    }
+
+    telemetryRef.current = {
+      x: windowData.x,
+      channels: windowData.channels
+    };
+
+    offlineReplayStatusRef.current = {
+      ...offlineReplayStatusRef.current,
+      startIndex: windowData.startIndex,
+      endIndex: windowData.endIndex
+    };
+  };
+
+  const stopOfflineTimer = () => {
+    if (offlineReplayTimerRef.current) {
+      clearInterval(offlineReplayTimerRef.current);
+      offlineReplayTimerRef.current = null;
+    }
+  };
+
+  const setOfflineWindowSeconds = (windowSeconds) => {
+    const nextSeconds = Math.max(1, Number(windowSeconds) || 10);
+    offlineReplayStatusRef.current = {
+      ...offlineReplayStatusRef.current,
+      windowSeconds: nextSeconds
+    };
+    if (offlineReplayStatusRef.current.loaded) {
+      applyOfflineWindow();
+    }
+  };
+
+  const seekOfflineReplay = (playhead) => {
+    const rows = offlineReplayRowsRef.current;
+    if (rows.length === 0) {
+      return;
+    }
+
+    const nextPlayhead = clamp(Math.round(Number(playhead) || 0), 0, rows.length - 1);
+    offlineReplayStatusRef.current = {
+      ...offlineReplayStatusRef.current,
+      playhead: nextPlayhead
+    };
+    applyOfflineWindow();
+  };
+
+  const pauseOfflineReplay = () => {
+    stopOfflineTimer();
+    offlineReplayStatusRef.current = {
+      ...offlineReplayStatusRef.current,
+      playing: false
+    };
+  };
+
+  const playOfflineReplay = () => {
+    const rows = offlineReplayRowsRef.current;
+    if (rows.length === 0) {
+      return;
+    }
+
+    if (offlineReplayStatusRef.current.playhead >= rows.length - 1) {
+      offlineReplayStatusRef.current = {
+        ...offlineReplayStatusRef.current,
+        playhead: 0
+      };
+      applyOfflineWindow();
+    }
+
+    if (offlineReplayTimerRef.current) {
+      return;
+    }
+
+    offlineReplayStatusRef.current = {
+      ...offlineReplayStatusRef.current,
+      playing: true
+    };
+
+    offlineReplayTimerRef.current = setInterval(() => {
+      const currentRows = offlineReplayRowsRef.current;
+      const state = offlineReplayStatusRef.current;
+      if (!state.loaded || currentRows.length === 0) {
+        pauseOfflineReplay();
+        return;
+      }
+
+      if (state.playhead >= currentRows.length - 1) {
+        pauseOfflineReplay();
+        return;
+      }
+
+      offlineReplayStatusRef.current = {
+        ...state,
+        playhead: state.playhead + 1,
+        playing: true
+      };
+      applyOfflineWindow();
+    }, 100);
+  };
+
+  const clearOfflineReplay = () => {
+    pauseOfflineReplay();
+    offlineReplayRowsRef.current = [];
+    offlineReplayStatusRef.current = {
+      loaded: false,
+      playing: false,
+      fileName: null,
+      total: 0,
+      playhead: 0,
+      startIndex: 0,
+      endIndex: 0,
+      windowSeconds: 10,
+      schema: []
+    };
+    resetTelemetryBuffer();
+  };
 
   const requestPortList = () => {
     if (socketRef.current?.readyState === WebSocket.OPEN) {
@@ -43,6 +241,30 @@ export const useTelemetryBuffer = () => {
   const toggleLogging = (enable) => {
     if (socketRef.current?.readyState === WebSocket.OPEN) {
       socketRef.current.send(JSON.stringify({ type: "toggle_logging", enable: Boolean(enable) }));
+    }
+  };
+
+  const requestBackendReplayStream = (fileName) => {
+    if (socketRef.current?.readyState === WebSocket.OPEN) {
+      socketRef.current.send(JSON.stringify({ type: "start_replay", fileName: fileName || null }));
+    }
+  };
+
+  const stopBackendReplayStream = () => {
+    if (socketRef.current?.readyState === WebSocket.OPEN) {
+      socketRef.current.send(JSON.stringify({ type: "stop_replay" }));
+    }
+  };
+
+  const listLogs = () => {
+    if (socketRef.current?.readyState === WebSocket.OPEN) {
+      socketRef.current.send(JSON.stringify({ type: "list_logs" }));
+    }
+  };
+
+  const loadOfflineReplay = (fileName) => {
+    if (socketRef.current?.readyState === WebSocket.OPEN) {
+      socketRef.current.send(JSON.stringify({ type: "load_replay", fileName: fileName || null }));
     }
   };
 
@@ -73,6 +295,7 @@ export const useTelemetryBuffer = () => {
       socket.onopen = () => {
         statusRef.current = "connected";
         requestPortList();
+        listLogs();
       };
 
       socket.onclose = () => {
@@ -123,6 +346,89 @@ export const useTelemetryBuffer = () => {
             return;
           }
 
+          if (message.type === "telemetry_schema") {
+            const schema = Array.isArray(message.schema)
+              ? message.schema.filter((channel) => typeof channel === "string" && channel.length > 0)
+              : [];
+            if (schema.length > 0) {
+              availableChannelsRef.current = schema;
+            }
+            return;
+          }
+
+          if (message.type === "replay_loaded") {
+            const schema = Array.isArray(message.schema)
+              ? message.schema.filter((channel) => typeof channel === "string" && channel.length > 0)
+              : [];
+            const rows = Array.isArray(message.rows)
+              ? message.rows
+                .map((row) => ({
+                  timestamp: Number(row?.timestamp) || Date.now(),
+                  values: Array.isArray(row?.values) ? row.values : []
+                }))
+                .filter((row) => Number.isFinite(row.timestamp))
+              : [];
+
+            stopOfflineTimer();
+            offlineReplayRowsRef.current = rows;
+            offlineReplayStatusRef.current = {
+              loaded: true,
+              playing: false,
+              fileName: message.fileName || null,
+              total: rows.length,
+              playhead: 0,
+              startIndex: 0,
+              endIndex: 0,
+              windowSeconds: offlineReplayStatusRef.current.windowSeconds || 10,
+              schema
+            };
+
+            if (schema.length > 0) {
+              availableChannelsRef.current = schema;
+            }
+
+            if (rows.length > 0) {
+              const firstTimestamp = rows[0].timestamp;
+              const initialEndIndex = rows.findIndex(
+                (row) => row.timestamp >= firstTimestamp + Math.max(1, Number(offlineReplayStatusRef.current.windowSeconds) || 10) * 1000
+              );
+              offlineReplayStatusRef.current = {
+                ...offlineReplayStatusRef.current,
+                playhead: initialEndIndex >= 0 ? initialEndIndex : rows.length - 1
+              };
+              resetTelemetryBuffer();
+              applyOfflineWindow();
+            } else {
+              resetTelemetryBuffer();
+            }
+
+            comActionStatusRef.current = `Loaded ${message.fileName || "offline log"}`;
+            return;
+          }
+
+          if (message.type === "replay_state") {
+            const wasActive = Boolean(replayStatusRef.current.active);
+            replayStatusRef.current = {
+              active: Boolean(message.active),
+              fileName: message.fileName || null,
+              total: Number.isFinite(message.total) ? message.total : 0
+            };
+
+            if (!wasActive && replayStatusRef.current.active) {
+              // Start replay with a clean timeline to avoid mixing with live timestamps.
+              resetTelemetryBuffer();
+            }
+
+            comActionStatusRef.current = message.active ? `Replaying ${message.fileName || 'latest'}` : "Replay stopped";
+            return;
+          }
+
+          if (message.type === "logs_list") {
+            logsListRef.current = Array.isArray(message.files) ? message.files : [];
+            comActionStatusRef.current = `Found ${logsListRef.current.length} log(s)`;
+            return;
+          }
+
           if (message.type === "error") {
             comActionStatusRef.current = String(message.message || "Serial error");
             return;
@@ -139,6 +445,11 @@ export const useTelemetryBuffer = () => {
           }
 
           if (message.type !== "telemetry") {
+            return;
+          }
+
+          // While offline replay is loaded, ignore live frames so the chart timeline stays stable.
+          if (offlineReplayStatusRef.current.loaded && message.rawHex) {
             return;
           }
 
@@ -238,8 +549,18 @@ export const useTelemetryBuffer = () => {
     currentComPortRef,
     comActionStatusRef,
     loggerStatusRef,
+    replayStatusRef,
+    logsListRef,
+    offlineReplayStatusRef,
     requestPortList,
     switchComPort,
-    toggleLogging
+    toggleLogging,
+    listLogs,
+    loadOfflineReplay,
+    playOfflineReplay,
+    pauseOfflineReplay,
+    seekOfflineReplay,
+    setOfflineWindowSeconds,
+    clearOfflineReplay
   };
 };

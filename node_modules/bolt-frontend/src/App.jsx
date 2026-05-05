@@ -90,7 +90,16 @@ const App = () => {
     loggerStatusRef,
     requestPortList,
     switchComPort,
-    toggleLogging
+    toggleLogging,
+    listLogs,
+    loadOfflineReplay,
+    playOfflineReplay,
+    pauseOfflineReplay,
+    seekOfflineReplay,
+    setOfflineWindowSeconds,
+    clearOfflineReplay,
+    offlineReplayStatusRef,
+    logsListRef
   } = useTelemetryBuffer();
   const [status, setStatus] = useState("disconnected");
   const [availablePorts, setAvailablePorts] = useState([]);
@@ -102,13 +111,29 @@ const App = () => {
     logDir: "./logs",
     bufferSize: 0
   });
+  const [offlineReplayStatus, setOfflineReplayStatus] = useState({
+    loaded: false,
+    playing: false,
+    fileName: null,
+    total: 0,
+    playhead: 0,
+    startIndex: 0,
+    endIndex: 0,
+    windowSeconds: 10,
+    schema: []
+  });
+  const [logsList, setLogsList] = useState([]);
+  const [selectedLogFile, setSelectedLogFile] = useState("");
+  const [offlineWindowSeconds, setOfflineWindowSecondsState] = useState(10);
 
   // STATE BARU: Untuk mengatur Menu Tab
   const [activeTab, setActiveTab] = useState("dashboard");
 
   const [availableChannels, setAvailableChannels] = useState(availableChannelsRef.current);
   const [selectedChannels, setSelectedChannels] = useState(
-    availableChannelsRef.current.length > 0 ? [availableChannelsRef.current[0]] : []
+    availableChannelsRef.current.length > 0
+      ? availableChannelsRef.current.slice(0, Math.min(4, availableChannelsRef.current.length))
+      : []
   );
   const plotGroups = useMemo(() => buildPlotGroups(selectedChannels), [selectedChannels]);
 
@@ -117,6 +142,11 @@ const App = () => {
       setStatus(statusRef.current);
       setComActionStatus(comActionStatusRef.current || "");
       setLoggerStatus({ ...loggerStatusRef.current });
+      setOfflineReplayStatus({ ...offlineReplayStatusRef.current });
+      setOfflineWindowSecondsState((prev) => {
+        const next = Number(offlineReplayStatusRef.current.windowSeconds) || 10;
+        return prev === next ? prev : next;
+      });
 
       const nextPorts = Array.isArray(availablePortsRef.current) ? availablePortsRef.current : [];
       setAvailablePorts((prev) => {
@@ -149,12 +179,21 @@ const App = () => {
           }
           return filtered;
         }
-        return nextChannels.length > 0 ? [nextChannels[0]] : [];
+        return nextChannels.length > 0 ? nextChannels.slice(0, Math.min(4, nextChannels.length)) : [];
+      });
+      // sync logs list
+      setLogsList((prev) => {
+        const next = Array.isArray(logsListRef.current) ? logsListRef.current : [];
+        // shallow compare by length and names
+        if (prev.length === next.length && prev.every((p, i) => p.name === next[i]?.name)) {
+          return prev;
+        }
+        return [...next];
       });
     }, 250);
 
     return () => clearInterval(timer);
-  }, [availableChannelsRef, statusRef, availablePortsRef, currentComPortRef, comActionStatusRef, loggerStatusRef]);
+  }, [availableChannelsRef, statusRef, availablePortsRef, currentComPortRef, comActionStatusRef, loggerStatusRef, offlineReplayStatusRef]);
 
   const toggleChannel = (channel) => {
     setSelectedChannels((prev) => {
@@ -399,6 +438,152 @@ const App = () => {
           <div className="status-row">
             <span>WebSocket: </span>
             <strong>{status}</strong>
+          </div>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginTop: '8px' }}>
+            <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
+              <select
+                value={selectedLogFile}
+                onChange={(e) => setSelectedLogFile(e.target.value)}
+                style={{
+                  padding: '6px 10px',
+                  backgroundColor: '#0b1220',
+                  color: '#e5e7eb',
+                  border: '1px solid #334155',
+                  borderRadius: '6px'
+                }}
+              >
+                <option value="">(latest)</option>
+                {logsList.map((f) => (
+                  <option key={f.name} value={f.name}>
+                    {f.name}
+                  </option>
+                ))}
+              </select>
+
+              <button
+                onClick={() => listLogs()}
+                style={{
+                  padding: '6px 10px',
+                  backgroundColor: '#111827',
+                  color: '#e2e8f0',
+                  border: '1px solid #64748b',
+                  borderRadius: '6px',
+                  cursor: 'pointer',
+                  fontWeight: 'bold'
+                }}
+              >
+                Refresh Logs
+              </button>
+
+              <button
+                onClick={() => loadOfflineReplay(selectedLogFile || null)}
+                style={{
+                  padding: '8px 12px',
+                  backgroundColor: '#f59e0b',
+                  color: '#0f172a',
+                  border: '1px solid #b45309',
+                  borderRadius: '6px',
+                  cursor: 'pointer',
+                  fontWeight: 'bold'
+                }}
+              >
+                📂 Load Offline
+              </button>
+
+              <button
+                onClick={() => {
+                  if (offlineReplayStatus.playing) {
+                    pauseOfflineReplay();
+                  } else {
+                    playOfflineReplay();
+                  }
+                }}
+                disabled={!offlineReplayStatus.loaded}
+                style={{
+                  padding: '8px 12px',
+                  backgroundColor: !offlineReplayStatus.loaded
+                    ? '#1f2937'
+                    : offlineReplayStatus.playing
+                      ? '#f97316'
+                      : '#22c55e',
+                  color: !offlineReplayStatus.loaded ? '#94a3b8' : '#0f172a',
+                  border: '1px solid #b45309',
+                  borderRadius: '6px',
+                  cursor: !offlineReplayStatus.loaded ? 'not-allowed' : 'pointer',
+                  fontWeight: 'bold'
+                }}
+              >
+                {offlineReplayStatus.playing ? '⏸ Pause' : '▶ Play'}
+              </button>
+
+              <button
+                onClick={() => clearOfflineReplay()}
+                disabled={!offlineReplayStatus.loaded}
+                style={{
+                  padding: '8px 12px',
+                  backgroundColor: !offlineReplayStatus.loaded ? '#1f2937' : '#ef4444',
+                  color: !offlineReplayStatus.loaded ? '#94a3b8' : '#fff',
+                  border: '1px solid #ef4444',
+                  borderRadius: '6px',
+                  cursor: !offlineReplayStatus.loaded ? 'not-allowed' : 'pointer',
+                  fontWeight: 'bold'
+                }}
+              >
+                Exit Offline
+              </button>
+
+              <span style={{ fontSize: '12px', color: '#f59e0b' }}>
+                {offlineReplayStatus.loaded
+                  ? `Loaded ${offlineReplayStatus.fileName || 'latest'} (${offlineReplayStatus.total})`
+                  : 'Offline not loaded'}
+              </span>
+            </div>
+
+            <div style={{ display: 'flex', gap: '14px', alignItems: 'center', flexWrap: 'wrap' }}>
+              <label style={{ color: '#cbd5e1', fontSize: '12px' }}>
+                Window (s)
+                <input
+                  type="number"
+                  min="1"
+                  step="1"
+                  value={offlineWindowSeconds}
+                  onChange={(e) => {
+                    const nextSeconds = Math.max(1, Number(e.target.value) || 1);
+                    setOfflineWindowSecondsState(nextSeconds);
+                    setOfflineWindowSeconds(nextSeconds);
+                  }}
+                  style={{
+                    marginLeft: '8px',
+                    width: '72px',
+                    padding: '4px 6px',
+                    backgroundColor: '#0b1220',
+                    color: '#e5e7eb',
+                    border: '1px solid #334155',
+                    borderRadius: '6px'
+                  }}
+                />
+              </label>
+
+              <label style={{ color: '#cbd5e1', fontSize: '12px', flex: '1 1 320px' }}>
+                Scrub
+                <input
+                  type="range"
+                  min="0"
+                  max={Math.max(0, offlineReplayStatus.total - 1)}
+                  value={Math.min(offlineReplayStatus.playhead, Math.max(0, offlineReplayStatus.total - 1))}
+                  disabled={!offlineReplayStatus.loaded}
+                  onChange={(e) => seekOfflineReplay(Number(e.target.value))}
+                  style={{ width: '100%', marginTop: '6px' }}
+                />
+              </label>
+
+              <span style={{ fontSize: '12px', color: '#93c5fd' }}>
+                {offlineReplayStatus.loaded
+                  ? `Frame ${offlineReplayStatus.playhead + 1}/${Math.max(offlineReplayStatus.total, 1)} | Window ${offlineReplayStatus.windowSeconds}s`
+                  : 'Load a log to start playback'}
+              </span>
+            </div>
           </div>
 
           <div className="channel-picker">
