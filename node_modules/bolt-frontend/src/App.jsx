@@ -87,13 +87,21 @@ const App = () => {
     availablePortsRef,
     currentComPortRef,
     comActionStatusRef,
+    loggerStatusRef,
     requestPortList,
-    switchComPort
+    switchComPort,
+    toggleLogging
   } = useTelemetryBuffer();
   const [status, setStatus] = useState("disconnected");
   const [availablePorts, setAvailablePorts] = useState([]);
   const [selectedComPort, setSelectedComPort] = useState("");
   const [comActionStatus, setComActionStatus] = useState("");
+  const [loggerStatus, setLoggerStatus] = useState({
+    isLogging: false,
+    fileName: null,
+    logDir: "./logs",
+    bufferSize: 0
+  });
 
   // STATE BARU: Untuk mengatur Menu Tab
   const [activeTab, setActiveTab] = useState("dashboard");
@@ -108,6 +116,7 @@ const App = () => {
     const timer = setInterval(() => {
       setStatus(statusRef.current);
       setComActionStatus(comActionStatusRef.current || "");
+      setLoggerStatus({ ...loggerStatusRef.current });
 
       const nextPorts = Array.isArray(availablePortsRef.current) ? availablePortsRef.current : [];
       setAvailablePorts((prev) => {
@@ -145,7 +154,7 @@ const App = () => {
     }, 250);
 
     return () => clearInterval(timer);
-  }, [availableChannelsRef, statusRef, availablePortsRef, currentComPortRef, comActionStatusRef]);
+  }, [availableChannelsRef, statusRef, availablePortsRef, currentComPortRef, comActionStatusRef, loggerStatusRef]);
 
   const toggleChannel = (channel) => {
     setSelectedChannels((prev) => {
@@ -259,6 +268,21 @@ const App = () => {
                   }}
                 >
                   Use Port
+                </button>
+
+                <button
+                  onClick={() => toggleLogging(!loggerStatus.isLogging)}
+                  style={{
+                    padding: '6px 10px',
+                    backgroundColor: loggerStatus.isLogging ? '#ef4444' : '#1f2937',
+                    color: loggerStatus.isLogging ? '#fff' : '#94a3b8',
+                    border: `1px solid ${loggerStatus.isLogging ? '#ef4444' : '#64748b'}`,
+                    borderRadius: '6px',
+                    cursor: 'pointer',
+                    fontWeight: 'bold'
+                  }}
+                >
+                  {loggerStatus.isLogging ? '⏹ Stop Log' : '⏺ Start Log'}
                 </button>
 
                 <span style={{ color: '#93c5fd', fontSize: '12px' }}>

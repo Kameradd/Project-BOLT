@@ -31,5 +31,7 @@ export const config = {
   baudRate: toNumber(process.env.BAUD_RATE, 115200),
   wsPort: toNumber(process.env.WS_PORT, 8787),
   telemetryWords: resolveTelemetryWords(),
-  mockSerial: String(process.env.MOCK_SERIAL || "false").toLowerCase() === "true"
+  mockSerial: String(process.env.MOCK_SERIAL || "false").toLowerCase() === "true",
+  logDir: process.env.LOG_DIR || "./logs",
+  enableLogging: String(process.env.ENABLE_LOGGING || "false").toLowerCase() === "true"
 };

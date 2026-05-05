@@ -14,6 +14,12 @@ export const useTelemetryBuffer = () => {
   const currentComPortRef = useRef("");
   const comActionStatusRef = useRef("");
   const availableChannelsRef = useRef([DEFAULT_CHANNEL]);
+  const loggerStatusRef = useRef({
+    isLogging: false,
+    fileName: null,
+    logDir: "./logs",
+    bufferSize: 0
+  });
   const telemetryRef = useRef({
     x: [],
     channels: {
@@ -31,6 +37,12 @@ export const useTelemetryBuffer = () => {
     if (socketRef.current?.readyState === WebSocket.OPEN && comPort) {
       comActionStatusRef.current = `Switching to ${comPort}...`;
       socketRef.current.send(JSON.stringify({ type: "switch_port", comPort }));
+    }
+  };
+
+  const toggleLogging = (enable) => {
+    if (socketRef.current?.readyState === WebSocket.OPEN) {
+      socketRef.current.send(JSON.stringify({ type: "toggle_logging", enable: Boolean(enable) }));
     }
   };
 
@@ -93,6 +105,21 @@ export const useTelemetryBuffer = () => {
 
           if (message.type === "com_error") {
             comActionStatusRef.current = String(message.message || "COM command failed");
+            return;
+          }
+
+          if (message.type === "logger_state") {
+            loggerStatusRef.current = {
+              isLogging: Boolean(message.isLogging),
+              fileName: message.fileName || null,
+              logDir: message.logDir || "./logs",
+              bufferSize: Number.isFinite(message.bufferSize) ? message.bufferSize : 0
+            };
+            if (message.isLogging) {
+              comActionStatusRef.current = `Logging to ${message.fileName}`;
+            } else {
+              comActionStatusRef.current = "Logging stopped";
+            }
             return;
           }
 
@@ -210,7 +237,9 @@ export const useTelemetryBuffer = () => {
     availablePortsRef,
     currentComPortRef,
     comActionStatusRef,
+    loggerStatusRef,
     requestPortList,
-    switchComPort
+    switchComPort,
+    toggleLogging
   };
 };

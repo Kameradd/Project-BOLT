@@ -4,9 +4,11 @@ import { config } from "./config.js";
 import { mapValuesToTelemetry, TELEMETRY_FIELDS } from "./payload-schema.js";
 import { TelemetrySource } from "./serial-source.js";
 import { inspectTelemetryPayload } from "./telemetry-parser.js";
+import { TelemetryLogger } from "./logger.js";
 
 let source = new TelemetrySource(config);
 let currentComPort = config.comPort;
+const logger = new TelemetryLogger(config.logDir, TELEMETRY_FIELDS);
 const wss = new WebSocketServer({ port: config.wsPort });
 
 wss.on("connection", (socket) => {
@@ -16,6 +18,16 @@ wss.on("connection", (socket) => {
       type: "com_state",
       currentComPort,
       mockSerial: config.mockSerial,
+      timestamp: Date.now()
+    })
+  );
+
+  // Send current logging status
+  const loggerStatus = logger.getStatus();
+  socket.send(
+    JSON.stringify({
+      type: "logger_state",
+      ...loggerStatus,
       timestamp: Date.now()
     })
   );
@@ -105,6 +117,34 @@ wss.on("connection", (socket) => {
           })
         );
       }
+      return;
+    }
+
+    if (message?.type === "toggle_logging") {
+      const enable = Boolean(message.enable);
+      try {
+        if (enable) {
+          await logger.startLogging();
+        } else {
+          await logger.stopLogging();
+        }
+
+        const loggerStatus = logger.getStatus();
+        broadcast({
+          type: "logger_state",
+          ...loggerStatus,
+          timestamp: Date.now()
+        });
+      } catch (error) {
+        socket.send(
+          JSON.stringify({
+            type: "com_error",
+            message: `Failed to toggle logging: ${error.message}`,
+            timestamp: Date.now()
+          })
+        );
+      }
+      return;
     }
   });
 });
@@ -162,6 +202,11 @@ const attachSourceHandlers = (nextSource) => {
         ? Object.keys(inspection.channels)
         : TELEMETRY_FIELDS;
 
+    // Log parsed values if logging is enabled
+    if (logger.isLogging) {
+      logger.log(inspection.values);
+    }
+
     broadcast({
       type: "telemetry",
       rawHex: payload,
@@ -178,6 +223,7 @@ attachSourceHandlers(source);
 process.on("SIGINT", async () => {
   console.log("\nShutting down backend...");
   await source.stop();
+  await logger.stopLogging();
   wss.close(() => process.exit(0));
 });
 
