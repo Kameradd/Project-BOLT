@@ -25,7 +25,7 @@ const resolveReplayFile = async (fileName) => {
 
   if (!targetFile) {
     const files = await fs.readdir(logDir);
-    const candidates = files.filter((n) => n.startsWith("telemetry_") && n.endsWith(".log"));
+    const candidates = files.filter((n) => n.startsWith("telemetry_") && (n.endsWith(".csv") || n.endsWith(".log")));
     if (candidates.length === 0) {
       throw new Error("no log files found");
     }
@@ -48,7 +48,11 @@ const resolveReplayFile = async (fileName) => {
     const timestamp = Number(cols[0]) || Date.now();
     const isoTime = cols[1] || new Date(timestamp).toISOString();
     const values = cols.slice(2).map((v) => {
-      const n = Number(v.replace(/"/g, ""));
+      const cleaned = v.replace(/"/g, "").trim();
+      if (cleaned === "") {
+        return null;
+      }
+      const n = Number(cleaned);
       return Number.isFinite(n) ? n : null;
     });
     return { timestamp, isoTime, values };
@@ -387,7 +391,7 @@ const attachSourceHandlers = (nextSource) => {
         ? Object.keys(inspection.channels)
         : TELEMETRY_FIELDS;
 
-    // Log parsed values if logging is enabled
+    // Log parsed values (with scaling applied) if logging is enabled
     if (logger.isLogging) {
       logger.log(inspection.values);
     }
@@ -415,3 +419,10 @@ process.on("SIGINT", async () => {
 
 console.log(`[WS] Listening on ws://localhost:${config.wsPort}`);
 source.start();
+
+// Auto-start logging if enabled via config
+if (config.enableLogging) {
+  logger.startLogging().catch((error) => {
+    console.error(`[STARTUP] Failed to start logging: ${error.message}`);
+  });
+}

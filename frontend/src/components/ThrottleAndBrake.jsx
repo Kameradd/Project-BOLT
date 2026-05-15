@@ -47,7 +47,7 @@ const ThrottleAndBrake = ({ telemetryRef, throttleChannel = "throttle", brakeCha
     // Memastikan nilai selalu di antara 0 sampai 100
     const safeThrottle = Math.min(Math.max(currentThrottle, 0), 100);
 
-    const normalizedBrake = (currentBrake) / 1024 * 100; // Normalisasi dari -100..100 ke 0..100
+    const normalizedBrake = (currentBrake) / 2048 * 100; // Normalisasi dari -100..100 ke 0..100
     const safeBrake = Math.min(Math.max(normalizedBrake, 0), 100);
 
     return (

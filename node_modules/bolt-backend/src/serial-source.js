@@ -8,44 +8,45 @@ const toSignedInt16Hex = (value) => {
   return asUnsigned.toString(16).toUpperCase().padStart(4, "0");
 };
 
-// Realistic value ranges per channel
+// Raw value ranges per channel (matching ESP32 encoding with scaling factors)
+// These are the VALUES SENT OVER SERIAL (before decoding/division)
 const CHANNEL_RANGES = {
-  TimeSampling: { min: 0, max: 10000 },
-  bmsVolts: { min: 40, max: 55 },
-  bmsTemp: { min: 20, max: 80 },
-  bmsCurrent: { min: -100, max: 200 },
-  bmsSOC: { min: 10, max: 100 },
-  engineTemp: { min: 20, max: 120 },
-  ECUBattV: { min: 12, max: 15 },
-  speed: { min: 0, max: 150 },
-  RPM: { min: 0, max: 13000 },
-  throttle: { min: 0, max: 100 },
-  steering: { min: -100, max: 100 },
-  HyStatus: { min: 0, max: 1 },
-  Gear: { min: 0, max: 6 },
-  RawBrake: { min: 0, max: 4000 },
-  imuAx: { min: -50, max: 50 },
-  imuAy: { min: -50, max: 50 },
-  imuAz: { min: -100, max: 100 },
-  imuGx: { min: -360, max: 360 },
-  imuGy: { min: -360, max: 360 },
-  imuGz: { min: -360, max: 360 },
-  susp1Raw: { min: 0, max: 4000 },
-  susp2Raw: { min: 0, max: 4000 },
-  susp3Raw: { min: 0, max: 4000 },
-  susp4Raw: { min: 0, max: 4000 },
-  rpmPa15: { min: 0, max: 1000 },
-  rpmPb3: { min: 0, max: 1000 },
-  rpmPb5: { min: 0, max: 1000 },
-  rpmPb8: { min: 0, max: 1000 },
-  vescRpmLeft: { min: 0, max: 5000 },
-  vescRpmRight: { min: 0, max: 5000 },
-  apps1: { min: 0, max: 4000 },
-  apps2: { min: 0, max: 4000 },
-  pedal: { min: 0, max: 100 },
-  duty: { min: 0, max: 100 },
-  leftMotor: { min: -500, max: 500 },
-  rightMotor: { min: -500, max: 500 }
+  TimeSampling: { min: 0, max: 65535 },    // milliseconds
+  bmsVolts: { min: 7200, max: 8401 },      // 720.0V - 840.1V (÷10)
+  bmsTemp: { min: 30, max: 56 },           // 30°C - 56°C
+  bmsCurrent: { min: 0, max: 500 },        // 0A - 50.0A (÷10)
+  bmsSOC: { min: 0, max: 1000 },           // 0% - 100% (÷10)
+  engineTemp: { min: 70, max: 101 },       // 70°C - 101°C
+  ECUBattV: { min: 120, max: 145 },        // 12.0V - 14.5V (÷10)
+  speed: { min: 0, max: 120 },             // 0 - 120 km/h
+  RPM: { min: 0, max: 12000 },             // 0 - 12000 RPM
+  throttle: { min: 0, max: 100 },          // 0% - 100%
+  steering: { min: -450, max: 451 },       // -45.0° - 45.1° (÷10)
+  HyStatus: { min: 0, max: 1 },            // binary
+  Gear: { min: 0, max: 6 },                // gear number
+  RawBrake: { min: 0, max: 1024 },         // 10-bit ADC
+  imuAx: { min: -14715, max: 14715 },      // ±14.715 m/s² (÷1000)
+  imuAy: { min: -14715, max: 14715 },      // ±14.715 m/s² (÷1000)
+  imuAz: { min: -14715, max: 14715 },      // ±14.715 m/s² (÷1000)
+  imuGx: { min: -360, max: 360 },          // ±360 DPS
+  imuGy: { min: -360, max: 360 },          // ±360 DPS
+  imuGz: { min: -500, max: 500 },          // ±50 DPS (÷10)
+  susp1Raw: { min: 0, max: 4000 },         // 0 - 4000
+  susp2Raw: { min: 0, max: 4000 },         // 0 - 4000
+  susp3Raw: { min: 0, max: 4000 },         // 0 - 4000
+  susp4Raw: { min: 0, max: 4000 },         // 0 - 4000
+  rpmPa15: { min: 0, max: 1000 },          // 0 - 1000 RPM
+  rpmPb3: { min: 0, max: 1000 },           // 0 - 1000 RPM
+  rpmPb5: { min: 0, max: 1000 },           // 0 - 1000 RPM
+  rpmPb8: { min: 0, max: 1000 },           // 0 - 1000 RPM
+  vescRpmLeft: { min: 0, max: 5000 },      // 0 - 5000 RPM
+  vescRpmRight: { min: 0, max: 5000 },     // 0 - 5000 RPM
+  apps1: { min: 0, max: 4000 },            // 0 - 4000 ADC
+  apps2: { min: 0, max: 4000 },            // 0 - 4000 ADC
+  pedal: { min: 0, max: 100 },             // 0% - 100%
+  duty: { min: 0, max: 100 },              // 0% - 100%
+  leftMotor: { min: -500, max: 500 },      // ±500
+  rightMotor: { min: -500, max: 500 }      // ±500
 };
 
 const buildMockPayload = (cursor, wordCount) => {

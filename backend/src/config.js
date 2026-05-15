@@ -35,3 +35,4 @@ export const config = {
   logDir: process.env.LOG_DIR || "./logs",
   enableLogging: String(process.env.ENABLE_LOGGING || "false").toLowerCase() === "true"
 };
+

@@ -229,8 +229,8 @@ export const inspectTelemetryPayload = (payload, options = {}) => {
     const schemaSet = new Set(schemaFields);
     for (const field of schemaFields) {
       if (!(field in numericChannels)) {
-        channels[field] = 0;
-        values.push(0);
+        channels[field] = null;
+        values.push(null);
         continue;
       }
 
