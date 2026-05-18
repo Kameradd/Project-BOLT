@@ -23,6 +23,7 @@ const PLOT_COLORS = [
 
 const GROUP_RULES = [
   { group: "IMU", startsWith: ["IMU_"] },
+  { group: "RPM_AUX", includes: ["rpmpa15", "rpmpb3", "rpmpb5", "rpmpb8"] }, // specific rpmp* channels grouped together
   { group: "RPM", includes: ["RPM"] },
   { group: "Susp", includes: ["Susp"] },
   { group: "APPS", includes: ["APPS"] },

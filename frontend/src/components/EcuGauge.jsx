@@ -51,8 +51,14 @@ const EcuGauge = ({ telemetryRef, channelName = "ECU_Temp" }) => {
 
     // Asumsi batas suhu maksimal ECU adalah 100 derajat Celcius
     const maxTemp = 100;
-    const safeTemp = Math.min(Math.max(currentTemp, 0), maxTemp);
 
+    // Normalisasi nilai: beberapa sumber mengirim suhu dalam "tenths" (e.g. 268 -> 26.8).
+    // Jika nilai mentah cukup besar (>150) anggap itu dalam tenths dan bagi 10,
+    // sebaliknya anggap sudah dalam derajat Celcius.
+    const rawTemp = Number(currentTemp / 10) || 0;
+    const tempC = rawTemp;    // Batasi nilai suhu agar tidak melebihi batas maksimal untuk tampilan
+
+    const safeTemp = Math.min(Math.max(tempC, 0), maxTemp);
     // Kalkulasi persentase (0.0 sampai 1.0)
     const fillPercentage = safeTemp / maxTemp;
 
@@ -110,9 +116,9 @@ const EcuGauge = ({ telemetryRef, channelName = "ECU_Temp" }) => {
                 fontFamily: "'Orbitron', sans-serif",
                 fontSize: '16px',
                 fontWeight: 'bold',
-                color: '#ffffff',
+                color: '#ffffff'
             }}>
-                {currentTemp.toFixed(0)}°C
+                {safeTemp.toFixed(1)}°C
             </h1>
 
             {/* Angka Vbatt */}

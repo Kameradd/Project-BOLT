@@ -133,7 +133,7 @@ const BmsGauge = ({
                     top: 132,
                     right: -242,
                     width: 120,
-                    opacity: hyStatus === 1 ? 0 : 1, // Logika nyala mati (1 = muncul, 0 = hilang)
+                    opacity: (hyStatus === 1 || hyStatus === 2) ? 1 : 0, // Logika nyala/mati (1 atau 2 = muncul, 0 = hilang)
                     transition: 'opacity 0.2s ease-in-out',
                     filter: 'drop-shadow(0px 0px 8px rgba(255, 234, 0, 0.8))' // Efek glow kuning
                 }}
