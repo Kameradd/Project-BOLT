@@ -6,9 +6,17 @@ const TimeStamp = ({ telemetryRef, channelName = "TimeSampling" }) => { // 1. Se
 
     useEffect(() => {
         const renderFrame = () => {
-            if (telemetryRef.current && telemetryRef.current.channels[channelName]) {
-                const timeData = telemetryRef.current.channels[channelName];
-                if (timeData.length > 0) setCurrentTime(timeData[timeData.length - 1]);
+            if (telemetryRef.current) {
+                // Try to get time from x array (CSV import stores timestamps in ms as x array values)
+                if (telemetryRef.current.x && telemetryRef.current.x.length > 0) {
+                    const timeInSeconds = telemetryRef.current.x[telemetryRef.current.x.length - 1];
+                    setCurrentTime(timeInSeconds);
+                }
+                // Fallback to channel lookup for backend live data
+                else if (telemetryRef.current.channels[channelName]) {
+                    const timeData = telemetryRef.current.channels[channelName];
+                    if (timeData.length > 0) setCurrentTime(timeData[timeData.length - 1]);
+                }
             }
 
             // 2. KUNCI PERBAIKAN: Panggil lagi di sini agar loop-nya tidak putus!

@@ -11,6 +11,15 @@ const EcuGauge = ({ telemetryRef, channelName = "ECU_Temp" }) => {
     useEffect(() => {
         let angle = 0; // Untuk simulasi naik turun
 
+        // Helper to find channel with fallback names
+        const getChannelData = (channels, primary, fallbacks = []) => {
+            if (channels[primary]) return channels[primary];
+            for (const fallback of fallbacks) {
+                if (channels[fallback]) return channels[fallback];
+            }
+            return null;
+        };
+
         const renderFrame = () => {
             /*
             // --- MODE SIMULASI UNTUK TESTING ---
@@ -25,21 +34,24 @@ const EcuGauge = ({ telemetryRef, channelName = "ECU_Temp" }) => {
 
             // --- MODE RILL MENGGUNAKAN DATA TELEMETRI ---
             // --- KODE ASLI (Buka komen ini saat pakai data mobil) ---
-            //ambil data suhu ECU dari telemetry
-            if (telemetryRef.current && telemetryRef.current.channels[channelName]) {
-                const channelData = telemetryRef.current.channels[channelName];
-                if (channelData.length > 0) {
-                    setCurrentTemp(channelData[channelData.length - 1]);
-                }
+            //ambil data suhu ECU dari telemetry dengan fallback
+            const tempData = getChannelData(
+                telemetryRef.current?.channels || {},
+                channelName,
+                ["engineTemp", "ECU_Temp"]
+            );
+            if (tempData && tempData.length > 0) {
+                setCurrentTemp(tempData[tempData.length - 1]);
             }
 
-            //ambil data Vbatt dari telemetry
-            if (telemetryRef.current && telemetryRef.current.channels["ECUBattV"]) {
-                const vChannelData = telemetryRef.current.channels["ECUBattV"];
-                if (vChannelData.length > 0) {
-                    setVbatt(vChannelData[vChannelData.length - 1]);
-                }
-
+            //ambil data Vbatt dari telemetry dengan fallback
+            const vData = getChannelData(
+                telemetryRef.current?.channels || {},
+                "ECU_V",
+                ["ECUBattV", "ECU_V"]
+            );
+            if (vData && vData.length > 0) {
+                setVbatt(vData[vData.length - 1]);
             }
 
             rafRef.current = requestAnimationFrame(renderFrame);

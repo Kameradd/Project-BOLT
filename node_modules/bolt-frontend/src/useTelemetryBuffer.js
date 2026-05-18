@@ -35,7 +35,9 @@ export const useTelemetryBuffer = () => {
     startIndex: 0,
     endIndex: 0,
     windowSeconds: 10,
-    schema: []
+    schema: [],
+    playbackSpeedMultiplier: 1.0,
+    sampleRate: 100
   });
   const offlineReplayRowsRef = useRef([]);
   const offlineReplayTimerRef = useRef(null);
@@ -201,11 +203,11 @@ export const useTelemetryBuffer = () => {
 
       offlineReplayStatusRef.current = {
         ...state,
-        playhead: state.playhead + 1,
+        playhead: state.playhead + Math.max(1, Math.round(state.sampleRate / 10 * state.playbackSpeedMultiplier)),
         playing: true
       };
       applyOfflineWindow();
-    }, 100);
+    }, 100); // 100ms interval = 10 updates/sec
   };
 
   const clearOfflineReplay = () => {
@@ -265,6 +267,123 @@ export const useTelemetryBuffer = () => {
   const loadOfflineReplay = (fileName) => {
     if (socketRef.current?.readyState === WebSocket.OPEN) {
       socketRef.current.send(JSON.stringify({ type: "load_replay", fileName: fileName || null }));
+
+      // Calculate sample rate from timestamp intervals
+      const calculateSampleRate = (rows) => {
+        if (rows.length < 2) return 100;
+        // Calculate average time difference between samples
+        let totalDiff = 0;
+        let count = 0;
+        for (let i = 1; i < Math.min(rows.length, 100); i++) {
+          const diff = rows[i].timestamp - rows[i - 1].timestamp;
+          if (diff > 0 && diff < 100) { // Only count reasonable diffs (0-100ms)
+            totalDiff += diff;
+            count++;
+          }
+        }
+        if (count === 0) return 100;
+        const avgIntervalMs = totalDiff / count;
+        const sampleRate = Math.round(1000 / avgIntervalMs);
+        return Math.max(10, Math.min(1000, sampleRate)); // Clamp between 10-1000 Hz
+      };
+    }
+  };
+
+  const importLocalCsv = async (file) => {
+    if (!file) {
+      comActionStatusRef.current = "No file selected";
+      return;
+    }
+
+    try {
+      const text = await file.text();
+      const lines = text.split(/\r?\n/).map((l) => l.trim()).filter((l) => l.length > 0);
+      if (lines.length < 2) {
+        comActionStatusRef.current = "CSV appears empty or has no data rows";
+        return;
+      }
+
+      const header = lines[0].split(",").map((h) => String(h || "").trim());
+
+      // Determine timestamp column: prefer header named 'timestamp', fall back to 'iso_time', else first column
+      let tsIndex = header.findIndex((h) => /timestamp/i.test(h));
+      const isoIndex = header.findIndex((h) => /iso_time/i.test(h));
+      if (tsIndex < 0 && isoIndex >= 0) tsIndex = isoIndex;
+      if (tsIndex < 0) tsIndex = 0;
+
+      const schemaIndices = header
+        .map((name, idx) => ({ name, idx }))
+        .filter(({ name, idx }) => idx !== tsIndex && !/iso_time/i.test(name))
+        .map((x) => x.idx);
+
+      const schema = schemaIndices.map((idx) => header[idx]);
+      const rows = [];
+
+      for (let i = 1; i < lines.length; i += 1) {
+        const cols = lines[i].split(",");
+        if (cols.length <= Math.max(tsIndex, ...schemaIndices)) {
+          // skip malformed row
+          continue;
+        }
+
+        let ts = Number(cols[tsIndex]);
+        if (!Number.isFinite(ts)) {
+          const parsed = Date.parse(cols[tsIndex]);
+          ts = Number.isFinite(parsed) ? parsed : NaN;
+        }
+
+        if (!Number.isFinite(ts)) {
+          // skip rows without valid timestamp
+          continue;
+        }
+
+        const values = schemaIndices.map((idx) => {
+          const v = Number(cols[idx]);
+          return Number.isFinite(v) ? v : 0;
+        });
+
+        rows.push({ timestamp: ts, values });
+      }
+
+      stopOfflineTimer();
+      offlineReplayRowsRef.current = rows;
+      offlineReplayStatusRef.current = {
+        loaded: true,
+        playing: false,
+        fileName: file.name || "local.csv",
+        total: rows.length,
+        playhead: rows.length > 0 ? Math.min(rows.length - 1, Math.max(0, Math.floor(rows.length / 2))) : 0,
+        startIndex: 0,
+        endIndex: 0,
+        windowSeconds: offlineReplayStatusRef.current.windowSeconds || 10,
+        schema,
+        playbackSpeedMultiplier: 1.0,
+        sampleRate: calculateSampleRate(rows)
+      };
+
+      if (schema.length > 0) {
+        availableChannelsRef.current = schema;
+      }
+
+      if (rows.length > 0) {
+        const firstTimestamp = rows[0].timestamp;
+        const initialEndIndex = rows.findIndex(
+          (row) => row.timestamp >= firstTimestamp + Math.max(1, Number(offlineReplayStatusRef.current.windowSeconds) || 10) * 1000
+        );
+        offlineReplayStatusRef.current = {
+          ...offlineReplayStatusRef.current,
+          playhead: initialEndIndex >= 0 ? initialEndIndex : rows.length - 1,
+          total: rows.length
+        };
+        resetTelemetryBuffer();
+        applyOfflineWindow();
+      } else {
+        resetTelemetryBuffer();
+      }
+
+      comActionStatusRef.current = `Imported ${file.name || 'local.csv'} (${rows.length})`;
+    } catch (err) {
+      comActionStatusRef.current = `Failed to import CSV: ${String(err.message || err)}`;
     }
   };
 
@@ -540,6 +659,14 @@ export const useTelemetryBuffer = () => {
       }
     };
   }, []);
+  const setPlaybackSpeed = (speedMultiplier) => {
+    const speed = Math.max(0.1, Math.min(4.0, speedMultiplier)); // Clamp 0.1x to 4x
+    offlineReplayStatusRef.current = {
+      ...offlineReplayStatusRef.current,
+      playbackSpeedMultiplier: speed
+    };
+  };
+
 
   return {
     telemetryRef,
@@ -557,10 +684,12 @@ export const useTelemetryBuffer = () => {
     toggleLogging,
     listLogs,
     loadOfflineReplay,
+    importLocalCsv,
     playOfflineReplay,
     pauseOfflineReplay,
     seekOfflineReplay,
     setOfflineWindowSeconds,
+    setPlaybackSpeed,
     clearOfflineReplay
   };
 };

@@ -9,7 +9,7 @@ const GforceAndSteering = ({
     telemetryRef,
     channelNameimuAx = "imuAx",
     channelNameimuAy = "imuAy",
-    channelNameSteering = "Steering_Angle"
+    channelNameSteering = "Steer_Norm"
 }) => {
     const [currentimuAx, setCurrentimuAx] = React.useState(0);
     const [currentimuAy, setCurrentimuAy] = React.useState(0);
@@ -19,6 +19,17 @@ const GforceAndSteering = ({
     React.useEffect(() => {
         let angle = 0;
         let Yangle = 0;
+
+        // Helper to find channel with fallback names
+        const getChannelData = (channels, primary, fallbacks = []) => {
+            if (channels[primary]) return channels[primary];
+            for (const fallback of fallbacks) {
+                if (channels[fallback]) return channels[fallback];
+            }
+            return null;
+        };
+
+        let frameCount = 0;
 
         const renderFrame = () => {
             //==========================================================
@@ -36,23 +47,38 @@ const GforceAndSteering = ({
 
             //mode rill
             if (telemetryRef.current) {
-                // Ambil data imuAx
-                if (telemetryRef.current.channels[channelNameimuAx]) {
-                    const axData = telemetryRef.current.channels[channelNameimuAx];
-                    if (axData.length > 0) setCurrentimuAx(axData[axData.length - 1]);
+                // Debug: print available channels setiap 60 frames (~1 detik pada 60fps)
+                if (frameCount % 60 === 0) {
+                    console.log('Available channels:', Object.keys(telemetryRef.current.channels));
+                    console.log('imuAx data:', telemetryRef.current.channels[channelNameimuAx]);
+                    console.log('imuAy data:', telemetryRef.current.channels[channelNameimuAy]);
+                    console.log('steering data:', telemetryRef.current.channels[channelNameSteering]);
                 }
+                frameCount++;
 
-                // Ambil data imuAy
-                if (telemetryRef.current.channels[channelNameimuAy]) {
-                    const ayData = telemetryRef.current.channels[channelNameimuAy];
-                    if (ayData.length > 0) setCurrentimuAy(ayData[ayData.length - 1]);
-                }
+                // Ambil data imuAx dengan fallback
+                const axData = getChannelData(
+                    telemetryRef.current.channels,
+                    channelNameimuAx,
+                    ["imuAx", "IMU_Ax"]
+                );
+                if (axData && axData.length > 0) setCurrentimuAx(axData[axData.length - 1]);
 
-                // Ambil data Steering Angle
-                if (telemetryRef.current.channels[channelNameSteering]) {
-                    const steeringData = telemetryRef.current.channels[channelNameSteering];
-                    if (steeringData.length > 0) setCurrentSteering(steeringData[steeringData.length - 1]);
-                }
+                // Ambil data imuAy dengan fallback
+                const ayData = getChannelData(
+                    telemetryRef.current.channels,
+                    channelNameimuAy,
+                    ["imuAy", "IMU_Ay"]
+                );
+                if (ayData && ayData.length > 0) setCurrentimuAy(ayData[ayData.length - 1]);
+
+                // Ambil data Steering Angle dengan fallback
+                const steeringData = getChannelData(
+                    telemetryRef.current.channels,
+                    channelNameSteering,
+                    ["steering", "Steer_Raw", "Steer_Norm"]
+                );
+                if (steeringData && steeringData.length > 0) setCurrentSteering(steeringData[steeringData.length - 1]);
             }
 
             rafRef.current = requestAnimationFrame(renderFrame);
@@ -81,9 +107,9 @@ const GforceAndSteering = ({
     const translateY = -normalizedAy * circleRadiusPx;
 
     // Kalkulasi pergerakan steering pointer (geser kiri-kanan)
-    const maxSteeringDeg = 450;
+    const maxSteeringRange = 0.5; // Steering range is -0.5 to 0.5
     const pointerTravelPx = 180; // Total jarak pointer bergerak dari kiri ke kanan dalam piksel
-    const normalizedSteering = clamp(currentSteering, -maxSteeringDeg, maxSteeringDeg) / maxSteeringDeg;
+    const normalizedSteering = clamp(currentSteering, -maxSteeringRange, maxSteeringRange) / maxSteeringRange;
     const steeringTranslateX = normalizedSteering * pointerTravelPx;
 
 
@@ -144,7 +170,7 @@ const GforceAndSteering = ({
                 fontSize: '14px',
                 color: '#ffffff'
             }}>
-                {Math.round(currentSteering)}°
+                {(currentSteering).toFixed(2)}
             </h1>
 
             {/* STEERING POINTER GESER KIRI-KANAN */}

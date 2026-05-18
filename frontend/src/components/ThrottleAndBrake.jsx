@@ -12,6 +12,15 @@ const ThrottleAndBrake = ({ telemetryRef, throttleChannel = "throttle", brakeCha
     useEffect(() => {
         let angle = 0; // Untuk simulasi
 
+        // Helper to find channel with fallback names
+        const getChannelData = (channels, primary, fallbacks = []) => {
+            if (channels[primary]) return channels[primary];
+            for (const fallback of fallbacks) {
+                if (channels[fallback]) return channels[fallback];
+            }
+            return null;
+        };
+
         const renderFrame = () => {
             // --- MODE SIMULASI ---
             /*
@@ -25,14 +34,19 @@ const ThrottleAndBrake = ({ telemetryRef, throttleChannel = "throttle", brakeCha
 
             // --- MODE RILL (Buka komen ini saat konek ke ESP32) ---
             if (telemetryRef.current) {
-                if (telemetryRef.current.channels[throttleChannel]) {
-                    const thrData = telemetryRef.current.channels[throttleChannel];
-                    if (thrData.length > 0) setCurrentThrottle(thrData[thrData.length - 1]);
-                }
-                if (telemetryRef.current.channels[brakeChannel]) {
-                    const brkData = telemetryRef.current.channels[brakeChannel];
-                    if (brkData.length > 0) setCurrentBrake(brkData[brkData.length - 1]);
-                }
+                const thrData = getChannelData(
+                    telemetryRef.current.channels,
+                    throttleChannel,
+                    ["throttle", "Throttle"]
+                );
+                if (thrData && thrData.length > 0) setCurrentThrottle(thrData[thrData.length - 1]);
+
+                const brkData = getChannelData(
+                    telemetryRef.current.channels,
+                    brakeChannel,
+                    ["RawBrake", "Brake_Raw"]
+                );
+                if (brkData && brkData.length > 0) setCurrentBrake(brkData[brkData.length - 1]);
             }
 
 

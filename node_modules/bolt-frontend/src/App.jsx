@@ -94,14 +94,17 @@ const App = () => {
     toggleLogging,
     listLogs,
     loadOfflineReplay,
+    importLocalCsv,
     playOfflineReplay,
     pauseOfflineReplay,
     seekOfflineReplay,
     setOfflineWindowSeconds,
+    setPlaybackSpeed,
     clearOfflineReplay,
     offlineReplayStatusRef,
     logsListRef
   } = useTelemetryBuffer();
+  const [localFile, setLocalFile] = useState(null);
   const [status, setStatus] = useState("disconnected");
   const [availablePorts, setAvailablePorts] = useState([]);
   const [selectedComPort, setSelectedComPort] = useState("");
@@ -388,39 +391,39 @@ const App = () => {
           }}>
             <RpmGauge
               telemetryRef={telemetryRef}
-              channelName="RPM"
-              speedChannel="speed"
+              channelName="ECU_RPM"
+              speedChannel="GPS_Speed"
               gearChannel="Gear"
             />
 
             {/* Baterai Bimasakti ditumpuk di atasnya */}
             <BmsGauge
               telemetryRef={telemetryRef}
-              channelName="bmsSOC"
-              voltageChannel="bmsVolts"
-              currentChannel="bmsCurrent"
-              tempChannel="bmsTemp"
+              channelName="BMS_SOC"
+              voltageChannel="BMS_V"
+              currentChannel="BMS_A"
+              tempChannel="BMS_Temp_Max"
               hyStatusChannel="HyStatus"
             />
             {/* Indikator ECU Temp dengan Sliding Mask */}
             <EcuGauge
               telemetryRef={telemetryRef}
-              channelName="engineTemp"
+              channelName="ECU_Temp"
             />
 
             {/* G-Force Vector & Steering Angle */}
             <GforceAndSteering
               telemetryRef={telemetryRef}
-              channelNameimuAx="imuAx"
-              channelNameimuAy="imuAy"
-              channelNameSteering="steering"
+              channelNameimuAx="IMU_Ax"
+              channelNameimuAy="IMU_Ay"
+              channelNameSteering="Steer_Norm"
             />
 
             {/*Throttle and Brake*/}
             <ThrottleAndBrake
               telemetryRef={telemetryRef}
-              throttleChannel="throttle"
-              brakeChannel="RawBrake"
+              throttleChannel="Throttle"
+              brakeChannel="Brake_Raw"
             />
 
             {/* Timestamp */}
@@ -492,6 +495,34 @@ const App = () => {
                 📂 Load Offline
               </button>
 
+              <input
+                type="file"
+                accept=".csv,text/csv"
+                onChange={(e) => setLocalFile(e.target.files ? e.target.files[0] : null)}
+                style={{ marginLeft: '8px' }}
+              />
+
+              <button
+                onClick={() => {
+                  if (localFile) {
+                    // importLocalCsv is provided by the hook
+                    // eslint-disable-next-line no-undef
+                    importLocalCsv(localFile);
+                  }
+                }}
+                style={{
+                  padding: '8px 12px',
+                  backgroundColor: '#60a5fa',
+                  color: '#0f172a',
+                  border: '1px solid #1d4ed8',
+                  borderRadius: '6px',
+                  cursor: 'pointer',
+                  fontWeight: 'bold'
+                }}
+              >
+                Import CSV
+              </button>
+
               <button
                 onClick={() => {
                   if (offlineReplayStatus.playing) {
@@ -536,7 +567,7 @@ const App = () => {
 
               <span style={{ fontSize: '12px', color: '#f59e0b' }}>
                 {offlineReplayStatus.loaded
-                  ? `Loaded ${offlineReplayStatus.fileName || 'latest'} (${offlineReplayStatus.total})`
+                  ? `Loaded ${offlineReplayStatus.fileName || 'latest'} (${offlineReplayStatus.total}) | ${offlineReplayStatus.sampleRate}Hz`
                   : 'Offline not loaded'}
               </span>
             </div>
@@ -579,6 +610,27 @@ const App = () => {
                 />
               </label>
 
+              <div style={{ display: 'flex', gap: '8px', alignItems: 'center', marginBottom: '10px' }}>
+                <span style={{ color: '#cbd5e1', fontSize: '12px' }}>Speed:</span>
+                {[0.5, 1, 1.5, 2].map((speed) => (
+                  <button
+                    key={speed}
+                    onClick={() => setPlaybackSpeed(speed)}
+                    style={{
+                      padding: '4px 10px',
+                      backgroundColor: offlineReplayStatus.playbackSpeedMultiplier === speed ? '#3b82f6' : '#1f2937',
+                      color: offlineReplayStatus.playbackSpeedMultiplier === speed ? '#fff' : '#cbd5e1',
+                      border: '1px solid #475569',
+                      borderRadius: '4px',
+                      fontSize: '12px',
+                      cursor: 'pointer',
+                      fontWeight: offlineReplayStatus.playbackSpeedMultiplier === speed ? 'bold' : 'normal'
+                    }}
+                  >
+                    {speed}x
+                  </button>
+                ))}
+              </div>
               <span style={{ fontSize: '12px', color: '#93c5fd' }}>
                 {offlineReplayStatus.loaded
                   ? `Frame ${offlineReplayStatus.playhead + 1}/${Math.max(offlineReplayStatus.total, 1)} | Window ${offlineReplayStatus.windowSeconds}s`

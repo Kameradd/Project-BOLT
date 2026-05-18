@@ -23,6 +23,15 @@ const BmsGauge = ({
     useEffect(() => {
         let angle = 0; // Untuk simulasi naik turun baterai
 
+        // Helper to find channel with fallback names
+        const getChannelData = (channels, primary, fallbacks = []) => {
+            if (channels[primary]) return channels[primary];
+            for (const fallback of fallbacks) {
+                if (channels[fallback]) return channels[fallback];
+            }
+            return null;
+        };
+
         const renderFrame = () => {
 
             /*
@@ -45,35 +54,45 @@ const BmsGauge = ({
             // --- KODE ASLI (Buka komen ini saat pakai data mobil) ---
 
             if (telemetryRef.current) {
-                // 1. Ambil SOC
-                if (telemetryRef.current.channels[channelName]) {
-                    const socData = telemetryRef.current.channels[channelName];
-                    if (socData.length > 0) setCurrentSoc(socData[socData.length - 1]);
-                }
+                // 1. Ambil SOC dengan fallback
+                const socData = getChannelData(
+                    telemetryRef.current.channels,
+                    channelName,
+                    ["bmsSOC", "BMS_SOC"]
+                );
+                if (socData && socData.length > 0) setCurrentSoc(socData[socData.length - 1]);
 
-                // 2. Ambil Voltage
-                if (telemetryRef.current.channels[voltageChannel]) {
-                    const vData = telemetryRef.current.channels[voltageChannel];
-                    if (vData.length > 0) setBmsVoltage(vData[vData.length - 1]);
-                }
+                // 2. Ambil Voltage dengan fallback
+                const vData = getChannelData(
+                    telemetryRef.current.channels,
+                    voltageChannel,
+                    ["bmsVolts", "BMS_V"]
+                );
+                if (vData && vData.length > 0) setBmsVoltage(vData[vData.length - 1]);
 
-                // 3. Ambil Current
-                if (telemetryRef.current.channels[currentChannel]) {
-                    const cData = telemetryRef.current.channels[currentChannel];
-                    if (cData.length > 0) setBmsCurrent(cData[cData.length - 1]);
-                }
+                // 3. Ambil Current dengan fallback
+                const cData = getChannelData(
+                    telemetryRef.current.channels,
+                    currentChannel,
+                    ["bmsCurrent", "BMS_A"]
+                );
+                if (cData && cData.length > 0) setBmsCurrent(cData[cData.length - 1]);
 
-                // 4. Ambil Temp
-                if (telemetryRef.current.channels[tempChannel]) {
-                    const tData = telemetryRef.current.channels[tempChannel];
-                    if (tData.length > 0) setBmsTemp(tData[tData.length - 1]);
-                }
+                // 4. Ambil Temp dengan fallback
+                const tData = getChannelData(
+                    telemetryRef.current.channels,
+                    tempChannel,
+                    ["bmsTemp", "BMS_Temp_Max"]
+                );
+                if (tData && tData.length > 0) setBmsTemp(tData[tData.length - 1]);
 
-                // 5. Ambil Hybrid Status
-                if (telemetryRef.current.channels[hyStatusChannel]) {
-                    const hyData = telemetryRef.current.channels[hyStatusChannel];
-                    if (hyData.length > 0) setHyStatus(hyData[hyData.length - 1]);
-                }
+                // 5. Ambil Hybrid Status dengan fallback
+                const hyData = getChannelData(
+                    telemetryRef.current.channels,
+                    hyStatusChannel,
+                    ["HyStatus", "HY_Status"]
+                );
+                if (hyData && hyData.length > 0) setHyStatus(hyData[hyData.length - 1]);
             };
 
 

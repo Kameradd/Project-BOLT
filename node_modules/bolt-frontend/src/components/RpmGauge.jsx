@@ -30,6 +30,16 @@ const RpmGauge = ({ telemetryRef, channelName, speedChannel, gearChannel }) => {
 
     useEffect(() => {
         let angle = 0; // Hanya untuk simulasi
+        
+        // Helper to find channel with fallback names
+        const getChannelData = (channels, primary, fallbacks = []) => {
+            if (channels[primary]) return channels[primary];
+            for (const fallback of fallbacks) {
+                if (channels[fallback]) return channels[fallback];
+            }
+            return null;
+        };
+        
         const renderFrame = () => {
 
             //mode 
@@ -52,22 +62,32 @@ const RpmGauge = ({ telemetryRef, channelName, speedChannel, gearChannel }) => {
             */
             //mode rill
             if (telemetryRef.current) {
-                // --- AMBIL DATA RPM ---
-                if (telemetryRef.current.channels[channelName]) {
-                    const rpmData = telemetryRef.current.channels[channelName];
-                    if (rpmData.length > 0) setCurrentRpm(rpmData[rpmData.length - 1]);
+                // --- AMBIL DATA RPM dengan fallback ---
+                const rpmData = getChannelData(
+                    telemetryRef.current.channels,
+                    channelName,
+                    ["RPM", "ECU_RPM"]
+                );
+                if (rpmData && rpmData.length > 0) setCurrentRpm(rpmData[rpmData.length - 1]);
+
+                // --- AMBIL DATA SPEED dengan fallback ---
+                if (speedChannel) {
+                    const speedData = getChannelData(
+                        telemetryRef.current.channels,
+                        speedChannel,
+                        ["speed", "GPS_Speed"]
+                    );
+                    if (speedData && speedData.length > 0) setCurrentSpeed(speedData[speedData.length - 1]);
                 }
 
-                // --- AMBIL DATA SPEED ---
-                if (speedChannel && telemetryRef.current.channels[speedChannel]) {
-                    const speedData = telemetryRef.current.channels[speedChannel];
-                    if (speedData.length > 0) setCurrentSpeed(speedData[speedData.length - 1]);
-                }
-
-                // --- AMBIL DATA GEAR ---
-                if (gearChannel && telemetryRef.current.channels[gearChannel]) {
-                    const gearData = telemetryRef.current.channels[gearChannel];
-                    if (gearData.length > 0) {
+                // --- AMBIL DATA GEAR dengan fallback ---
+                if (gearChannel) {
+                    const gearData = getChannelData(
+                        telemetryRef.current.channels,
+                        gearChannel,
+                        ["Gear"]
+                    );
+                    if (gearData && gearData.length > 0) {
                         let gearVal = gearData[gearData.length - 1];
                         // Opsional: Jika ECU mengirim angka 0 untuk Netral
                         if (gearVal == 0) gearVal = 'N';
