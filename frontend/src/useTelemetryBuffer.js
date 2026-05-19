@@ -264,28 +264,28 @@ export const useTelemetryBuffer = () => {
     }
   };
 
+  // Calculate sample rate from timestamp intervals
+  const calculateSampleRate = (rows) => {
+    if (rows.length < 2) return 100;
+    // Calculate average time difference between samples
+    let totalDiff = 0;
+    let count = 0;
+    for (let i = 1; i < Math.min(rows.length, 100); i++) {
+      const diff = rows[i].timestamp - rows[i - 1].timestamp;
+      if (diff > 0 && diff < 100) { // Only count reasonable diffs (0-100ms)
+        totalDiff += diff;
+        count++;
+      }
+    }
+    if (count === 0) return 100;
+    const avgIntervalMs = totalDiff / count;
+    const sampleRate = Math.round(1000 / avgIntervalMs);
+    return Math.max(10, Math.min(1000, sampleRate)); // Clamp between 10-1000 Hz
+  };
+
   const loadOfflineReplay = (fileName) => {
     if (socketRef.current?.readyState === WebSocket.OPEN) {
       socketRef.current.send(JSON.stringify({ type: "load_replay", fileName: fileName || null }));
-
-      // Calculate sample rate from timestamp intervals
-      const calculateSampleRate = (rows) => {
-        if (rows.length < 2) return 100;
-        // Calculate average time difference between samples
-        let totalDiff = 0;
-        let count = 0;
-        for (let i = 1; i < Math.min(rows.length, 100); i++) {
-          const diff = rows[i].timestamp - rows[i - 1].timestamp;
-          if (diff > 0 && diff < 100) { // Only count reasonable diffs (0-100ms)
-            totalDiff += diff;
-            count++;
-          }
-        }
-        if (count === 0) return 100;
-        const avgIntervalMs = totalDiff / count;
-        const sampleRate = Math.round(1000 / avgIntervalMs);
-        return Math.max(10, Math.min(1000, sampleRate)); // Clamp between 10-1000 Hz
-      };
     }
   };
 

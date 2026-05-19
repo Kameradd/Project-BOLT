@@ -60,6 +60,7 @@ const ThrottleAndBrake = ({ telemetryRef, throttleChannel = "throttle", brakeCha
 
     // Memastikan nilai selalu di antara 0 sampai 100
     const safeThrottle = Math.min(Math.max(currentThrottle, 0), 100);
+    const displayThrottle = Math.floor(safeThrottle / 10);
 
     const normalizedBrake = (currentBrake) / 2048 * 100; // Normalisasi dari -100..100 ke 0..100
     const safeBrake = Math.min(Math.max(normalizedBrake, 0), 100);
@@ -87,7 +88,7 @@ const ThrottleAndBrake = ({ telemetryRef, throttleChannel = "throttle", brakeCha
                         fontWeight: 'Bold',
                         fontSize: '8px'
                     }}>
-                        {Math.round(safeThrottle)}
+                        {displayThrottle}
                     </span>
                 </div>
                 {/* Bar SVG (Masking) */}
@@ -101,7 +102,7 @@ const ThrottleAndBrake = ({ telemetryRef, throttleChannel = "throttle", brakeCha
                             objectFit: 'fill',
 
                             // RUMUS MASKING: Memotong sisa area dari kanan
-                            clipPath: `inset(0% ${100 - safeThrottle}% 0% 0%)`,
+                            clipPath: `inset(0% ${100 - displayThrottle}% 0% 0%)`,
                         }}
                     />
                 </div>
