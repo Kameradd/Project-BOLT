@@ -1,4 +1,4 @@
-import React, { useRef, useMemo } from "react";
+import React, { useRef } from "react";
 import UplotPanel from "../UplotPanel.jsx";
 
 const NormalizeDataView = ({
@@ -29,56 +29,74 @@ const NormalizeDataView = ({
     // Use direct object reference to avoid re-creating on every render
     const normalizedTelemetryRef = useRef({ x: [], channels: {} });
     const lastLengthRef = useRef(0);
+    const lastXRef = useRef(null);
 
-    // Only update when data length changes to avoid recreating arrays every frame
+    // Incremental normalization: only process new samples instead of remapping whole arrays
     if (telemetryRef?.current) {
         const original = telemetryRef.current;
         const currentLength = original.x?.length || 0;
+        const lastLength = lastLengthRef.current;
+        const latestX = currentLength > 0 ? original.x[currentLength - 1] : null;
+        const hasNewX = latestX !== lastXRef.current;
 
-        // Only regenerate normalized data when new points are added
-        if (currentLength !== lastLengthRef.current) {
-            lastLengthRef.current = currentLength;
+        // Keep x referencing the original array for uPlot
+        normalizedTelemetryRef.current.x = original.x || [];
 
-            normalizedTelemetryRef.current = {
-                x: original.x || [],
-                channels: {}
-            };
-
-            // Copy all channels with normalization for specific ones
+        // If data shrank (e.g., new file/load), rebuild normalized channels
+        if (currentLength < lastLength) {
+            normalizedTelemetryRef.current.channels = {};
             if (original.channels) {
                 for (const [key, value] of Object.entries(original.channels)) {
-                    if (key === 'ECU_Temp') {
-                        // Normalize ECU_Temp by dividing by 10
-                        normalizedTelemetryRef.current.channels[key] = value.map(val => val / 10);
-                    } else if (key === 'Throttle') {
-                        // Normalize Throttle by dividing by 10
-                        normalizedTelemetryRef.current.channels[key] = value.map(val => val / 10);
+                    if (key === 'ECU_Temp' || key === 'Throttle') {
+                        normalizedTelemetryRef.current.channels[key] = value.map(v => v / 10);
                     } else {
-                        // Keep other channels as-is
                         normalizedTelemetryRef.current.channels[key] = value;
                     }
                 }
             }
-        } else {
-            // Data length same, but update x and channel references to keep sync
-            normalizedTelemetryRef.current.x = original.x || [];
+            lastLengthRef.current = currentLength;
+        } else if (currentLength > lastLength) {
+            // New samples appended: only append normalized values for those indices
             if (original.channels) {
-                for (const key of Object.keys(original.channels)) {
+                for (const [key, value] of Object.entries(original.channels)) {
                     if (key === 'ECU_Temp' || key === 'Throttle') {
-                        // For normalized channels, check if we need to update
-                        if (!normalizedTelemetryRef.current.channels[key]) {
-                            const value = original.channels[key];
-                            normalizedTelemetryRef.current.channels[key] = value.map(val =>
-                                key === 'ECU_Temp' || key === 'Throttle' ? val / 10 : val
-                            );
+                        const normArr = normalizedTelemetryRef.current.channels[key];
+                        if (Array.isArray(normArr)) {
+                            for (let i = lastLength; i < currentLength; i++) {
+                                normArr.push(value[i] / 10);
+                            }
+                        } else {
+                            // First-time creation: map whole array
+                            normalizedTelemetryRef.current.channels[key] = value.map(v => v / 10);
                         }
                     } else {
-                        // Just reference the original for non-normalized channels
-                        normalizedTelemetryRef.current.channels[key] = original.channels[key];
+                        // Use direct reference for non-normalized channels to avoid copies
+                        normalizedTelemetryRef.current.channels[key] = value;
+                    }
+                }
+            }
+            lastLengthRef.current = currentLength;
+        } else {
+            // Same length can still mean new sample when ring buffer is full (old head dropped).
+            // Rebuild normalized channels only when x tail changed; otherwise just ensure keys exist.
+            if (original.channels) {
+                const shouldRebuildNormalized = currentLength > 1 && hasNewX;
+
+                for (const [key, value] of Object.entries(original.channels)) {
+                    if (key === 'ECU_Temp' || key === 'Throttle') {
+                        if (shouldRebuildNormalized) {
+                            normalizedTelemetryRef.current.channels[key] = value.map(v => v / 10);
+                        } else if (!(key in normalizedTelemetryRef.current.channels)) {
+                            normalizedTelemetryRef.current.channels[key] = value.map(v => v / 10);
+                        }
+                    } else if (!(key in normalizedTelemetryRef.current.channels) || shouldRebuildNormalized) {
+                        normalizedTelemetryRef.current.channels[key] = value;
                     }
                 }
             }
         }
+
+        lastXRef.current = latestX;
     }
 
     return (

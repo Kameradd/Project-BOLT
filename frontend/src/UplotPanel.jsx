@@ -272,71 +272,75 @@ const UplotPanel = ({ telemetryRef, plotTitle, channelLabels, lineColors, perfEn
     }
 
     const renderFrame = (now) => {
+      const plot = plotRef.current;
       const data = telemetryRef.current;
-      const channelSeries = channelLabels.map((channel) => data.channels?.[channel] || []);
-      const minLength = Math.min(data.x.length, ...channelSeries.map((series) => series.length));
 
-      if (plotRef.current && minLength > 1) {
-        const latestIndex = minLength - 1;
+      if (plot && data?.x?.length > 1) {
+        const latestIndex = data.x.length - 1;
         const latestX = data.x[latestIndex];
         const hasNewPoint =
-          latestIndex + 1 !== lastRenderedLengthRef.current ||
-          latestX !== lastRenderedXRef.current;
+          data.x.length !== lastRenderedLengthRef.current || latestX !== lastRenderedXRef.current;
 
+        // Skip per-series work when there is no fresh data point.
         if (hasNewPoint) {
-          const allAligned = minLength === data.x.length;
-          const xSeries = allAligned ? data.x : data.x.slice(-minLength);
-          const plotSeries = allAligned
-            ? channelSeries
-            : channelSeries.map((series) => series.slice(-minLength));
-          const fullMin = xSeries[0];
-          const fullMax = xSeries[xSeries.length - 1];
-          const oldFullMax = fullRangeRef.current.max;
-          fullRangeRef.current = { min: fullMin, max: fullMax };
+          const channelSeries = channelLabels.map((channel) => data.channels?.[channel] || []);
+          const minLength = Math.min(data.x.length, ...channelSeries.map((series) => series.length));
 
-          if (!userZoomedRef.current) {
-            plotRef.current.setData([xSeries, ...plotSeries], true);
-          } else {
-            const xScale = plotRef.current.scales.x;
-            let currentMin = xScale.min;
-            let currentMax = xScale.max;
+          if (minLength > 1) {
+            const allAligned = minLength === data.x.length;
+            const xSeries = allAligned ? data.x : data.x.slice(-minLength);
+            const plotSeries = allAligned
+              ? channelSeries
+              : channelSeries.map((series) => series.slice(-minLength));
+            const fullMin = xSeries[0];
+            const fullMax = xSeries[xSeries.length - 1];
+            const oldFullMax = fullRangeRef.current.max;
+            fullRangeRef.current = { min: fullMin, max: fullMax };
 
-            // Auto-scroll the zoom window forward if it was bound to the live right-edge
-            if (oldFullMax !== null && Number.isFinite(oldFullMax) && currentMax >= oldFullMax - 0.5) {
-              const delta = fullMax - oldFullMax;
-              currentMin += delta;
-              currentMax += delta;
+            if (!userZoomedRef.current) {
+              plot.setData([xSeries, ...plotSeries], true);
+            } else {
+              const xScale = plot.scales.x;
+              let currentMin = xScale.min;
+              let currentMax = xScale.max;
+
+              // Auto-scroll the zoom window forward if it was bound to the live right-edge
+              if (oldFullMax !== null && Number.isFinite(oldFullMax) && currentMax >= oldFullMax - 0.5) {
+                const delta = fullMax - oldFullMax;
+                currentMin += delta;
+                currentMax += delta;
+              }
+
+              internalScaleUpdateRef.current = true;
+              plot.setData([xSeries, ...plotSeries], false);
+              internalScaleUpdateRef.current = false;
+
+              if (Number.isFinite(currentMin) && Number.isFinite(currentMax) && currentMax > currentMin) {
+                let nextMin = currentMin;
+                let nextMax = currentMax;
+
+                if (nextMin < fullMin) {
+                  const width = nextMax - nextMin;
+                  nextMin = fullMin;
+                  nextMax = nextMin + width;
+                }
+
+                if (nextMax > fullMax) {
+                  const width = nextMax - nextMin;
+                  nextMax = fullMax;
+                  nextMin = nextMax - width;
+                }
+
+                if (nextMax > nextMin) {
+                  internalScaleUpdateRef.current = true;
+                  plot.setScale("x", { min: nextMin, max: nextMax });
+                  internalScaleUpdateRef.current = false;
+                }
+              }
             }
-
-            internalScaleUpdateRef.current = true;
-            plotRef.current.setData([xSeries, ...plotSeries], false);
-            internalScaleUpdateRef.current = false;
-
-            if (Number.isFinite(currentMin) && Number.isFinite(currentMax) && currentMax > currentMin) {
-              let nextMin = currentMin;
-              let nextMax = currentMax;
-
-              if (nextMin < fullMin) {
-                const width = nextMax - nextMin;
-                nextMin = fullMin;
-                nextMax = nextMin + width;
-              }
-
-              if (nextMax > fullMax) {
-                const width = nextMax - nextMin;
-                nextMax = fullMax;
-                nextMin = nextMax - width;
-              }
-
-              if (nextMax > nextMin) {
-                internalScaleUpdateRef.current = true;
-                plotRef.current.setScale("x", { min: nextMin, max: nextMax });
-                internalScaleUpdateRef.current = false;
-              }
-            }
+            lastRenderedLengthRef.current = data.x.length;
+            lastRenderedXRef.current = latestX;
           }
-          lastRenderedLengthRef.current = latestIndex + 1;
-          lastRenderedXRef.current = latestX;
         }
       }
 
